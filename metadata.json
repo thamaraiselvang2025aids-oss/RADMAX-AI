@@ -1,0 +1,6 @@
+{
+  "name": "MedVision AI",
+  "description": "Enterprise AI Medical Imaging & Radiology Platform for X-Ray, MRI, CT, Ultrasound, PET, and Mammography scans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
