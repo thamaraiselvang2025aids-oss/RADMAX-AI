@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: radmax-ai-backend
+    env: docker
+    dockerfilePath: ./Dockerfile.python
+    plan: free
+
+  - type: web
+    name: radmax-app
+    env: docker
+    dockerfilePath: ./Dockerfile.node
+    plan: free
+    envVars:
+      - key: PYTHON_API_URL
+        fromService:
+          type: web
+          name: radmax-ai-backend
+          property: url
