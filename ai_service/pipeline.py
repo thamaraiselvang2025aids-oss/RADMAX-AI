@@ -24,6 +24,8 @@ class MedicalAIPipeline:
         self.xrv_model = None
         self.mri_model = None
         self.ct_model = None
+        self.breast_model = getattr(self, "breast_model", None)
+        self.thyroid_model = getattr(self, "thyroid_model", None)
         
         import os
         model_dir = os.path.join(os.path.dirname(__file__), "models")
@@ -46,8 +48,21 @@ class MedicalAIPipeline:
                 self.ct_model.load_state_dict(torch.load(ct_path, map_location="cpu", weights_only=False))
                 self.ct_model.eval()
                 print("Loaded Fine-Tuned CT Scan DenseNet121 model.")
+                
+            breast_path = os.path.join(model_dir, "breast_ultrasound_resnet18.pth")
+            if os.path.exists(breast_path):
+                self.breast_model = torch.load(breast_path, map_location="cpu", weights_only=False)
+                self.breast_model.eval()
+                print("Loaded Breast Ultrasound ResNet18 model.")
+                
+            thyroid_path = os.path.join(model_dir, "thyroid_ultrasound_resnet18.pth")
+            if os.path.exists(thyroid_path):
+                self.thyroid_model = torch.load(thyroid_path, map_location="cpu", weights_only=False)
+                self.thyroid_model.eval()
+                print("Loaded Thyroid Ultrasound ResNet18 model.")
+                
         except Exception as e:
-            print("Failed to load MRI/CT models:", e)
+            print("Failed to load one or more medical models:", e)
         
         if xrv is not None:
             try:
@@ -247,6 +262,73 @@ class MedicalAIPipeline:
                 findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
             except Exception as e:
                 findings = f"CT inference failed: {str(e)}. Falling back to mock."
+
+        # Execute ML inference for Breast Ultrasound
+        if not diseases and ("ultrasound" in modality.lower() or "us" in modality.lower()) and "breast" in body_lower and self.breast_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # Grad-CAM for Breast US
+                grad_cam = GradCAM(self.breast_model, self.breast_model.layer4)
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                # Class 0: Benign, Class 1: Malignant, Class 2: Normal (assuming BUSI dataset)
+                with torch.no_grad():
+                    preds = self.breast_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, pred_idx = torch.max(prob, 0)
+                
+                idx = pred_idx.item()
+                classes = ["Benign Tumor", "Malignant Tumor", "Normal Tissue"]
+                disease_name = classes[idx] if idx < len(classes) else "Unknown"
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "CRITICAL" if "Malignant" in disease_name else ("LOW" if "Normal" in disease_name else "REVIEW")
+                findings = f"Breast US XAI Output: {disease_name} detected with {confidence_score}% probability. Localized via heat map."
+            except Exception as e:
+                findings = f"Breast US inference failed: {str(e)}."
+                
+        # Execute ML inference for Thyroid Ultrasound
+        if not diseases and ("ultrasound" in modality.lower() or "us" in modality.lower()) and "thyroid" in body_lower and self.thyroid_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # Grad-CAM for Thyroid US
+                grad_cam = GradCAM(self.thyroid_model, self.thyroid_model.layer4)
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                with torch.no_grad():
+                    preds = self.thyroid_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, pred_idx = torch.max(prob, 0)
+                
+                idx = pred_idx.item()
+                classes = ["Benign Nodule", "Malignant Nodule"]
+                disease_name = classes[idx] if idx < len(classes) else "Unknown"
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "CRITICAL" if "Malignant" in disease_name else "REVIEW"
+                findings = f"Thyroid US XAI Output: {disease_name} detected with {confidence_score}% probability. Localized via heat map."
+            except Exception as e:
+                findings = f"Thyroid US inference failed: {str(e)}."
 
         # Mock fallback for non-chest (like Brain MRI) if no real model matched
         if not diseases and "brain" in body_lower:

@@ -26,11 +26,11 @@ def main():
     download_and_copy("andrewmvd/fetal-health-classification", "tabular_pregnancy")
     
     # 3. Image Stroke Dataset (Brain CT)
-    download_and_copy("aakashverma8900/brain-stroke-ct-image-dataset", "image_stroke")
+    download_and_copy("afridirahman/brain-stroke-ct-image-dataset", "image_stroke")
     
     # 4. Image Pregnancy Dataset (Fetal Ultrasound)
     # Using a common fetal ultrasound dataset
-    download_and_copy("afridirahman/fetal-ultrasound-dataset", "image_pregnancy")
+    download_and_copy("orvile/ultrasound-fetus-dataset", "image_pregnancy")
 
 if __name__ == "__main__":
     main()

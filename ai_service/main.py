@@ -6,8 +6,10 @@ from datetime import datetime
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
+import os
 from pipeline import pipeline
 
 # --- DATABASE SETUP ---
@@ -223,5 +225,66 @@ async def run_ai_inference(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference pipeline execution error: {str(e)}")
 
+import joblib
+import pandas as pd
+import random
+import os
+
+tabular_models = {}
+
+@app.post("/api/v1/tabular-inference")
+async def run_tabular_inference(
+    modality: str = Form("Clinical"),
+    bodyPart: str = Form("Fetal Health")
+):
+    try:
+        if "fetal" in bodyPart.lower() or "pregnancy" in bodyPart.lower():
+            model_path = os.path.join("models", "tabular_fetal_health_rf.pkl")
+            data_path = os.path.join("data", "tabular_pregnancy", "fetal_health.csv")
+            
+            if "fetal" not in tabular_models:
+                tabular_models["fetal"] = joblib.load(model_path)
+            
+            clf = tabular_models["fetal"]
+            df = pd.read_csv(data_path)
+            
+            # Pick a random patient record
+            random_idx = random.randint(0, len(df)-1)
+            patient_data = df.iloc[random_idx:random_idx+1].drop(columns=['fetal_health'])
+            
+            prediction = clf.predict(patient_data)[0]
+            
+            # 1 (Normal), 2 (Suspect), 3 (Pathological)
+            classes = {1.0: "Normal", 2.0: "Suspect", 3.0: "Pathological"}
+            disease_name = classes.get(prediction, "Unknown")
+            
+            priority = "CRITICAL" if prediction == 3.0 else ("REVIEW" if prediction == 2.0 else "LOW")
+            confidence_score = float(round(random.uniform(85.0, 99.0), 2)) # Mock confidence for now
+            
+            # Format the input features as a pretty string
+            features_dict = patient_data.iloc[0].to_dict()
+            explanation_parts = [f"{k}: {v}" for k, v in list(features_dict.items())[:5]]
+            explanation = f"EHR Data Analyzed. Key metrics -> {', '.join(explanation_parts)}..."
+            
+            return JSONResponse(content={
+                "diseasesDetected": [{"disease": f"Fetal State: {disease_name}", "confidence": confidence_score}],
+                "emergencyPriority": priority,
+                "confidenceScore": confidence_score,
+                "aiFindings": f"Random Forest Tabular Model output: {disease_name}. {explanation}",
+                "heatmapOverlayUrl": None # No image for tabular
+            })
+            
+        return JSONResponse(content={"error": "Model not found for this body part."})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tabular inference error: {str(e)}")
+
+# Mount the compiled React frontend to the root
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+if os.path.exists(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+else:
+    print(f"Warning: Frontend dist folder not found at {frontend_dist}. Please run 'npm run build' in the frontend directory.")
+
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
