@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  python_ai:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+    restart: always
+
+  node_gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PYTHON_API_URL=http://python_ai:8001
+      # Note: For production, uncomment and set the DATABASE_URL to a real Postgres instance
+      # - DATABASE_URL=postgresql://user:password@host:5432/medvision
+    depends_on:
+      - python_ai
+    restart: always

@@ -144,7 +144,7 @@ export default function PACSViewer({
   }, [study, zoom, rotation, brightness, contrast, showHeatmap]);
 
   return (
-    <div className={`flex flex-col h-full ${isWhiteTheme ? 'bg-white text-slate-800' : 'bg-[#0f111a] text-slate-300'}`}>
+    <div className={`flex flex-col min-h-full md:h-full ${isWhiteTheme ? 'bg-white text-slate-800' : 'bg-[#0f111a] text-slate-300'}`}>
       {/* Top Toolbar */}
       <div className={`h-12 flex items-center px-4 justify-between border-b ${isWhiteTheme ? 'border-slate-200' : 'border-[#222736]'}`}>
         <div className="flex gap-2">
@@ -158,9 +158,9 @@ export default function PACSViewer({
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-visible md:overflow-hidden">
         {/* LEFT: Study Browser */}
-        <div className={`w-64 border-r flex flex-col p-4 ${isWhiteTheme ? 'border-slate-200 bg-slate-50' : 'border-[#222736] bg-[#151923]'}`}>
+        <div className={`w-full md:w-64 md:border-r border-b md:border-b-0 flex flex-col p-4 flex-shrink-0 ${isWhiteTheme ? 'border-slate-200 bg-slate-50' : 'border-[#222736] bg-[#151923]'}`}>
           <h3 className="font-bold text-xs uppercase text-slate-500 mb-4">Study Information</h3>
           <div className="space-y-3 text-sm">
             <div>
@@ -183,12 +183,12 @@ export default function PACSViewer({
         </div>
 
         {/* CENTER: Main Viewer */}
-        <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+        <div className="flex-1 min-h-[300px] relative bg-black flex items-center justify-center overflow-hidden flex-shrink-0 md:flex-shrink">
           <canvas ref={primaryCanvasRef} width={800} height={800} className="max-w-full max-h-full object-contain" />
         </div>
 
         {/* RIGHT: AI Evidence Panel */}
-        <div className={`w-80 border-l flex flex-col ${isWhiteTheme ? 'border-slate-200 bg-slate-50' : 'border-[#222736] bg-[#151923]'}`}>
+        <div className={`w-full md:w-80 md:border-l border-t md:border-t-0 flex flex-col flex-shrink-0 ${isWhiteTheme ? 'border-slate-200 bg-slate-50' : 'border-[#222736] bg-[#151923]'}`}>
           <div className="p-4 border-b border-[#222736]">
             <h3 className="font-bold text-sm uppercase flex items-center gap-2">
               <ActivitySquare className="text-indigo-500 w-4 h-4" /> Evidence Analysis

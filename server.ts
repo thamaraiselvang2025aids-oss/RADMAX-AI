@@ -168,7 +168,8 @@ app.post('/api/studies/:id/analyze', async (req: AuthenticatedRequest, res: Resp
   // Simulated AI Call - In reality, you'd call Python backend here
   let aiResult: any = null;
   try {
-    const aiServiceRes = await fetch('http://localhost:8001/api/v1/inference', {
+    const pythonApiUrl = process.env.PYTHON_API_URL || 'http://localhost:8001';
+    const aiServiceRes = await fetch(`${pythonApiUrl}/api/v1/inference`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });

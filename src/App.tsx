@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Image as ImageIcon, Activity, 
-  FileText, Plus, Check, RefreshCw, 
+  FileText, Plus, Check, RefreshCw, Menu, X,
   Search, Sun, Contrast, ActivitySquare, LayoutDashboard, BrainCircuit, ShieldAlert
 } from 'lucide-react';
 
@@ -13,6 +13,7 @@ import { UserRole, PriorityLevel, Study, Patient, HospitalStats, Report, UserPro
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Theme state: dark by default per requirements
   const [isWhiteTheme, setIsWhiteTheme] = useState<boolean>(false);
@@ -83,6 +84,7 @@ export default function App() {
 
   // Refresh data when switching to important tabs so they aren't stale
   useEffect(() => {
+    setIsMobileMenuOpen(false); // Close mobile menu on tab change
     if (currentUser && ['settings', 'dashboard', 'emergency-queue'].includes(currentTab)) {
       fetchData();
     }
@@ -157,24 +159,38 @@ export default function App() {
   const activeStudy = studies.find(s => s.id === selectedStudyId);
 
   return (
-    <div className={`flex h-screen overflow-hidden font-sans ${isWhiteTheme ? 'bg-slate-50 text-slate-800' : 'bg-[#0f111a] text-slate-300'}`}>
-      <Sidebar 
-        currentTab={currentTab} 
-        onTabChange={setCurrentTab} 
-        currentUser={currentUser}
-        onUserChange={setCurrentUser}
-        onLogout={handleLogout}
-        isWhiteTheme={isWhiteTheme}
-      />
+    <div className={`flex h-screen overflow-hidden font-sans w-full ${isWhiteTheme ? 'bg-slate-50 text-slate-800' : 'bg-[#0f111a] text-slate-300'}`}>
       
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      <div className={`fixed inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300`}>
+        <Sidebar 
+          currentTab={currentTab} 
+          onTabChange={setCurrentTab} 
+          currentUser={currentUser}
+          onUserChange={setCurrentUser}
+          onLogout={handleLogout}
+          isWhiteTheme={isWhiteTheme}
+        />
+      </div>
+      
+      <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
         {/* Top Header */}
-        <header className={`h-14 border-b flex items-center justify-between px-6 z-10 select-none ${
+        <header className={`h-14 border-b flex items-center justify-between px-4 md:px-6 z-10 select-none ${
           isWhiteTheme ? 'bg-white border-slate-200' : 'bg-[#151923] border-[#222736]'
         }`}>
           <div className="flex items-center gap-3">
-            <ActivitySquare className={`w-5 h-5 ${isWhiteTheme ? 'text-indigo-600' : 'text-blue-400'}`} />
-            <span className={`font-bold tracking-wide uppercase text-xs ${isWhiteTheme ? 'text-slate-800' : 'text-slate-200'}`}>MedVision Clinical Node</span>
+            <button className="md:hidden p-1 rounded-md hover:bg-slate-800/50" onClick={() => setIsMobileMenuOpen(true)}>
+              <Menu className={`w-5 h-5 ${isWhiteTheme ? 'text-slate-600' : 'text-slate-400'}`} />
+            </button>
+            <ActivitySquare className={`w-5 h-5 ${isWhiteTheme ? 'text-indigo-600' : 'text-blue-400'} hidden sm:block`} />
+            <span className={`font-bold tracking-wide uppercase text-xs ${isWhiteTheme ? 'text-slate-800' : 'text-slate-200'}`}>MedVision <span className="hidden sm:inline">Clinical Node</span></span>
           </div>
           <div className="flex items-center gap-4">
             <button onClick={() => setIsWhiteTheme(!isWhiteTheme)} className="p-1.5 hover:bg-slate-800/50 rounded-lg">
@@ -215,7 +231,7 @@ export default function App() {
                 
                 {isAddingPatient && (
                   <form onSubmit={handleAddPatientSubmit} className="mt-4 pt-4 border-t border-slate-700/50 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <input type="text" required value={newPatient.name} onChange={e => setNewPatient({...newPatient, name: e.target.value})} className="w-full text-xs rounded-lg px-3 py-2 bg-slate-900/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500" placeholder="Full Name" />
                       <input type="text" required value={newPatient.patientId} onChange={e => setNewPatient({...newPatient, patientId: e.target.value})} className="w-full text-xs rounded-lg px-3 py-2 bg-slate-900/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500" placeholder="Medical Record Number (MRN)" />
                       <input type="date" required value={newPatient.dateOfBirth} onChange={e => setNewPatient({...newPatient, dateOfBirth: e.target.value})} className="w-full text-xs rounded-lg px-3 py-2 bg-slate-900/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500" />
@@ -231,7 +247,7 @@ export default function App() {
               </div>
 
               {/* Stats overview */}
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className={`p-4 rounded-xl border ${isWhiteTheme ? 'bg-white border-slate-200' : 'bg-[#151923] border-[#222736]'}`}>
                   <p className="text-xs uppercase text-slate-500 font-bold mb-1">Registered Patients</p>
                   <p className="text-2xl font-bold font-mono">{patients.length}</p>
@@ -255,13 +271,13 @@ export default function App() {
                 <div className="p-4 border-b border-[#222736]">
                   <h3 className="font-bold text-sm uppercase text-slate-300">Recent Studies</h3>
                 </div>
-                <div className="p-4">
+                <div className="p-4 overflow-x-auto">
                   {studies.length === 0 ? (
                     <div className="text-center py-10 text-slate-500 text-sm">
                       No DICOM studies available. Upload a study from the patient workspace.
                     </div>
                   ) : (
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full text-left text-xs min-w-[600px]">
                       <thead>
                         <tr className="text-slate-500 border-b border-[#222736]">
                           <th className="pb-2 font-semibold uppercase">Patient</th>
@@ -348,7 +364,7 @@ export default function App() {
                       {patients.map(p => <option key={p.id} value={p.id}>{p.name} ({p.patientId})</option>)}
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Modality</label>
                       <select value={uploadData.modality} onChange={e => setUploadData({...uploadData, modality: e.target.value})} className="w-full text-xs rounded-lg px-3 py-2 bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-blue-500">
@@ -387,13 +403,13 @@ export default function App() {
                 <div className="p-4 border-b border-[#222736]">
                   <h3 className="font-bold text-sm uppercase text-slate-300">High Priority Cases</h3>
                 </div>
-                <div className="p-4">
+                <div className="p-4 overflow-x-auto">
                   {studies.filter(s => s.priority === PriorityLevel.CRITICAL || s.priority === PriorityLevel.HIGH).length === 0 ? (
                     <div className="text-center py-10 text-slate-500 text-sm">
                       No critical or high priority studies currently in the queue.
                     </div>
                   ) : (
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full text-left text-xs min-w-[600px]">
                       <thead>
                         <tr className="text-slate-500 border-b border-[#222736]">
                           <th className="pb-2 font-semibold uppercase">Patient</th>
@@ -446,7 +462,7 @@ export default function App() {
                       No audit logs available.
                     </div>
                   ) : (
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full text-left text-xs min-w-[600px]">
                       <thead className="sticky top-0 bg-[#151923] border-b border-[#222736]">
                         <tr className="text-slate-500">
                           <th className="p-3 font-semibold uppercase">Timestamp</th>
