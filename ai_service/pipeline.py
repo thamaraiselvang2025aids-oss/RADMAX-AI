@@ -24,43 +24,78 @@ class MedicalAIPipeline:
         self.model_dir = os.path.join(os.path.dirname(__file__), "models")
 
     def _load_mri(self):
-        m = models.resnet18(weights=None)
-        m.fc = torch.nn.Linear(m.fc.in_features, 4)
-        m.load_state_dict(torch.load(os.path.join(self.model_dir, "brain_mri_finetuned.pth"), map_location="cpu", weights_only=False))
-        m.eval()
-        return m
-
+        try:
+    
+            m = models.resnet18(weights=None)
+            m.fc = torch.nn.Linear(m.fc.in_features, 4)
+            m.load_state_dict(torch.load(os.path.join(self.model_dir, "brain_mri_finetuned.pth"), map_location="cpu", weights_only=False))
+            m.eval()
+            return m
+    
+        except Exception as e:
+            print(f"Failed to load model: {e}")
+            return None
     def _load_ct(self):
-        m = models.densenet121(weights=None)
-        m.classifier = torch.nn.Linear(m.classifier.in_features, 2)
-        m.load_state_dict(torch.load(os.path.join(self.model_dir, "ct_scan_finetuned.pth"), map_location="cpu", weights_only=False))
-        m.eval()
-        return m
-        
+        try:
+    
+            m = models.densenet121(weights=None)
+            m.classifier = torch.nn.Linear(m.classifier.in_features, 2)
+            m.load_state_dict(torch.load(os.path.join(self.model_dir, "ct_scan_finetuned.pth"), map_location="cpu", weights_only=False))
+            m.eval()
+            return m
+            
+        except Exception as e:
+            print(f"Failed to load model: {e}")
+            return None
     def _load_breast(self):
-        m = torch.load(os.path.join(self.model_dir, "breast_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
-        m.eval()
-        return m
-        
+        try:
+    
+            m = torch.load(os.path.join(self.model_dir, "breast_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
+            m.eval()
+            return m
+            
+        except Exception as e:
+            print(f"Failed to load model: {e}")
+            return None
     def _load_thyroid(self):
-        m = torch.load(os.path.join(self.model_dir, "thyroid_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
-        m.eval()
-        return m
-        
+        try:
+    
+            m = torch.load(os.path.join(self.model_dir, "thyroid_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
+            m.eval()
+            return m
+            
+        except Exception as e:
+            print(f"Failed to load model: {e}")
+            return None
     def _load_stroke(self):
-        m = torch.load(os.path.join(self.model_dir, "brain_stroke_resnet18.pth"), map_location="cpu", weights_only=False)
-        m.eval()
-        return m
-        
+        try:
+    
+            m = torch.load(os.path.join(self.model_dir, "brain_stroke_resnet18.pth"), map_location="cpu", weights_only=False)
+            m.eval()
+            return m
+            
+        except Exception as e:
+            print(f"Failed to load model: {e}")
+            return None
     def _load_pregnancy(self):
-        m = torch.load(os.path.join(self.model_dir, "fetal_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
-        m.eval()
-        return m
-        
+        try:
+    
+            m = torch.load(os.path.join(self.model_dir, "fetal_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
+            m.eval()
+            return m
+            
+        except Exception as e:
+            print(f"Failed to load model: {e}")
+            return None
     def _load_xrv(self):
-        m = torch.load(os.path.join(self.model_dir, "densenet121-res224-all.pth"), map_location="cpu", weights_only=False)
-        m.eval()
-        return m
+        try:
+    
+            m = torch.load(os.path.join(self.model_dir, "densenet121-res224-all.pth"), map_location="cpu", weights_only=False)
+            m.eval()
+            return m
+        except Exception as e:
+            print(f"Failed to load model: {e}")
+            return None
 
     def preprocess_image(self, img_bytes: bytes) -> tuple[np.ndarray, dict]:
         metadata = {}
