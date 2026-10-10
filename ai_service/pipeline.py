@@ -21,62 +21,46 @@ except ImportError:
 class MedicalAIPipeline:
     def __init__(self):
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        self.xrv_model = None
-        self.mri_model = None
-        self.ct_model = None
-        self.breast_model = getattr(self, "breast_model", None)
-        self.thyroid_model = getattr(self, "thyroid_model", None)
+        self.model_dir = os.path.join(os.path.dirname(__file__), "models")
+
+    def _load_mri(self):
+        m = models.resnet18(weights=None)
+        m.fc = torch.nn.Linear(m.fc.in_features, 4)
+        m.load_state_dict(torch.load(os.path.join(self.model_dir, "brain_mri_finetuned.pth"), map_location="cpu", weights_only=False))
+        m.eval()
+        return m
+
+    def _load_ct(self):
+        m = models.densenet121(weights=None)
+        m.classifier = torch.nn.Linear(m.classifier.in_features, 2)
+        m.load_state_dict(torch.load(os.path.join(self.model_dir, "ct_scan_finetuned.pth"), map_location="cpu", weights_only=False))
+        m.eval()
+        return m
         
-        import os
-        model_dir = os.path.join(os.path.dirname(__file__), "models")
+    def _load_breast(self):
+        m = torch.load(os.path.join(self.model_dir, "breast_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
+        m.eval()
+        return m
         
-        try:
-            mri_path = os.path.join(model_dir, "brain_mri_finetuned.pth")
-            if os.path.exists(mri_path):
-                self.mri_model = models.resnet18(weights=None)
-                num_ftrs = self.mri_model.fc.in_features
-                self.mri_model.fc = torch.nn.Linear(num_ftrs, 4)
-                self.mri_model.load_state_dict(torch.load(mri_path, map_location="cpu", weights_only=False))
-                self.mri_model.eval()
-                print("Loaded Fine-Tuned Brain MRI ResNet18 model.")
-                
-            ct_path = os.path.join(model_dir, "ct_scan_finetuned.pth")
-            if os.path.exists(ct_path):
-                self.ct_model = models.densenet121(weights=None)
-                num_ftrs = self.ct_model.classifier.in_features
-                self.ct_model.classifier = torch.nn.Linear(num_ftrs, 2)
-                self.ct_model.load_state_dict(torch.load(ct_path, map_location="cpu", weights_only=False))
-                self.ct_model.eval()
-                print("Loaded Fine-Tuned CT Scan DenseNet121 model.")
-                
-            breast_path = os.path.join(model_dir, "breast_ultrasound_resnet18.pth")
-            if os.path.exists(breast_path):
-                self.breast_model = torch.load(breast_path, map_location="cpu", weights_only=False)
-                self.breast_model.eval()
-                print("Loaded Breast Ultrasound ResNet18 model.")
-                
-            thyroid_path = os.path.join(model_dir, "thyroid_ultrasound_resnet18.pth")
-            if os.path.exists(thyroid_path):
-                self.thyroid_model = torch.load(thyroid_path, map_location="cpu", weights_only=False)
-                self.thyroid_model.eval()
-                print("Loaded Thyroid Ultrasound ResNet18 model.")
-                
-        except Exception as e:
-            print("Failed to load one or more medical models:", e)
+    def _load_thyroid(self):
+        m = torch.load(os.path.join(self.model_dir, "thyroid_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
+        m.eval()
+        return m
         
-        if xrv is not None:
-            try:
-                print("Loading local pre-trained TorchXRayVision DenseNet121...")
-                import os
-                model_path = os.path.join(os.path.dirname(__file__), "models", "densenet121-res224-all.pth")
-                if os.path.exists(model_path):
-                    self.xrv_model = torch.load(model_path, map_location="cpu", weights_only=False)
-                    print("Local model weights loaded successfully.")
-                else:
-                    print("Local model weights not found, using torchxrayvision defaults.")
-                self.xrv_model.eval()
-            except Exception as e:
-                print("Failed to load XRV model:", e)
+    def _load_stroke(self):
+        m = torch.load(os.path.join(self.model_dir, "brain_stroke_resnet18.pth"), map_location="cpu", weights_only=False)
+        m.eval()
+        return m
+        
+    def _load_pregnancy(self):
+        m = torch.load(os.path.join(self.model_dir, "fetal_ultrasound_resnet18.pth"), map_location="cpu", weights_only=False)
+        m.eval()
+        return m
+        
+    def _load_xrv(self):
+        m = torch.load(os.path.join(self.model_dir, "densenet121-res224-all.pth"), map_location="cpu", weights_only=False)
+        m.eval()
+        return m
 
     def preprocess_image(self, img_bytes: bytes) -> tuple[np.ndarray, dict]:
         metadata = {}
@@ -149,7 +133,8 @@ class MedicalAIPipeline:
         body_lower = body_part.lower()
 
         # Execute REAL ML inference if it's a Chest X-Ray and model is loaded
-        if self.xrv_model is not None and ("chest" in body_lower or "lung" in body_lower or "xray" in modality.lower() or "cr" in modality.lower()):
+        xrv_model = self._load_xrv()
+        if xrv_model is not None and ("chest" in body_lower or "lung" in body_lower or "xray" in modality.lower() or "cr" in modality.lower()):
             try:
                 # Prepare image for XRV (1, H, W) normalized [-1024, 1024]
                 img_float = img.astype(np.float32)
@@ -168,10 +153,10 @@ class MedicalAIPipeline:
                 
                 # Forward Pass (REAL ML Inference)
                 with torch.no_grad():
-                    preds = self.xrv_model(img_tensor)[0]
+                    preds = xrv_model(img_tensor)[0]
                 
                 # Zip results and sort by probability
-                results = list(zip(self.xrv_model.pathologies, preds.numpy()))
+                results = list(zip(xrv_model.pathologies, preds.numpy()))
                 results.sort(key=lambda x: x[1], reverse=True)
                 
                 # Select top 3 diseases
@@ -194,7 +179,8 @@ class MedicalAIPipeline:
                 findings = f"Real ML inference failed: {str(e)}. Falling back to mock."
 
         # Execute ML inference for Brain MRI
-        if not diseases and ("brain" in body_lower or "mri" in modality.lower()) and self.mri_model is not None:
+        mri_model = self._load_mri()
+        if not diseases and ("brain" in body_lower or "mri" in modality.lower()) and mri_model is not None:
             try:
                 img_resized = cv2.resize(img, (224, 224))
                 img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
@@ -204,7 +190,7 @@ class MedicalAIPipeline:
                 img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
                 
                 # 1. Run Grad-CAM logic
-                grad_cam = GradCAM(self.mri_model, self.mri_model.layer4[-1])
+                grad_cam = GradCAM(mri_model, mri_model.layer4[-1])
                 heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
                 
                 # Apply overlay
@@ -217,7 +203,7 @@ class MedicalAIPipeline:
                 
                 # Re-run inference just to get probabilities easily
                 with torch.no_grad():
-                    preds = self.mri_model(img_tensor)
+                    preds = mri_model(img_tensor)
                     prob = torch.nn.functional.softmax(preds[0], dim=0)
                     top_prob, _ = torch.max(prob, 0)
                 
@@ -229,7 +215,8 @@ class MedicalAIPipeline:
                 findings = f"MRI inference failed: {str(e)}. Falling back to mock."
 
         # Execute ML inference for CT Scan
-        if not diseases and "ct" in modality.lower() and self.ct_model is not None:
+        ct_model = self._load_ct()
+        if not diseases and "ct" in modality.lower() and ct_model is not None:
             try:
                 img_resized = cv2.resize(img, (224, 224))
                 img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
@@ -239,7 +226,7 @@ class MedicalAIPipeline:
                 img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
                 
                 # 1. Run Grad-CAM logic
-                grad_cam = GradCAM(self.ct_model, self.ct_model.features)
+                grad_cam = GradCAM(ct_model, ct_model.features)
                 heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
                 
                 # Apply overlay
@@ -252,7 +239,7 @@ class MedicalAIPipeline:
                 
                 # Re-run inference just to get probabilities easily
                 with torch.no_grad():
-                    preds = self.ct_model(img_tensor)
+                    preds = ct_model(img_tensor)
                     prob = torch.nn.functional.softmax(preds[0], dim=0)
                     top_prob, _ = torch.max(prob, 0)
                 
@@ -264,7 +251,8 @@ class MedicalAIPipeline:
                 findings = f"CT inference failed: {str(e)}. Falling back to mock."
 
         # Execute ML inference for Breast Ultrasound
-        if not diseases and ("ultrasound" in modality.lower() or "us" in modality.lower()) and "breast" in body_lower and self.breast_model is not None:
+        breast_model = self._load_breast()
+        if not diseases and ("ultrasound" in modality.lower() or "us" in modality.lower()) and "breast" in body_lower and breast_model is not None:
             try:
                 img_resized = cv2.resize(img, (224, 224))
                 img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
@@ -274,7 +262,7 @@ class MedicalAIPipeline:
                 img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
                 
                 # Grad-CAM for Breast US
-                grad_cam = GradCAM(self.breast_model, self.breast_model.layer4)
+                grad_cam = GradCAM(breast_model, breast_model.layer4)
                 heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
                 heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
                 _, buffer = cv2.imencode('.png', heatmap_bgr)
@@ -282,7 +270,7 @@ class MedicalAIPipeline:
                 
                 # Class 0: Benign, Class 1: Malignant, Class 2: Normal (assuming BUSI dataset)
                 with torch.no_grad():
-                    preds = self.breast_model(img_tensor)
+                    preds = breast_model(img_tensor)
                     prob = torch.nn.functional.softmax(preds[0], dim=0)
                     top_prob, pred_idx = torch.max(prob, 0)
                 
@@ -298,7 +286,8 @@ class MedicalAIPipeline:
                 findings = f"Breast US inference failed: {str(e)}."
                 
         # Execute ML inference for Thyroid Ultrasound
-        if not diseases and ("ultrasound" in modality.lower() or "us" in modality.lower()) and "thyroid" in body_lower and self.thyroid_model is not None:
+        thyroid_model = self._load_thyroid()
+        if not diseases and ("ultrasound" in modality.lower() or "us" in modality.lower()) and "thyroid" in body_lower and thyroid_model is not None:
             try:
                 img_resized = cv2.resize(img, (224, 224))
                 img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
@@ -308,14 +297,14 @@ class MedicalAIPipeline:
                 img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
                 
                 # Grad-CAM for Thyroid US
-                grad_cam = GradCAM(self.thyroid_model, self.thyroid_model.layer4)
+                grad_cam = GradCAM(thyroid_model, thyroid_model.layer4)
                 heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
                 heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
                 _, buffer = cv2.imencode('.png', heatmap_bgr)
                 heatmap_bytes = buffer.tobytes()
                 
                 with torch.no_grad():
-                    preds = self.thyroid_model(img_tensor)
+                    preds = thyroid_model(img_tensor)
                     prob = torch.nn.functional.softmax(preds[0], dim=0)
                     top_prob, pred_idx = torch.max(prob, 0)
                 
