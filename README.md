@@ -1,5 +1,7 @@
 # MedVision AI Diagnostics Platform 🏥🧠
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thamaraiselvang2025aids-oss/RADMAX-AI/blob/main/RADMAX_AI_Colab.ipynb)
+
 **MedVision AI** is an enterprise-grade Medical Artificial Intelligence platform designed for radiologists and medical professionals. It utilizes a state-of-the-art **FastAPI Python backend** powered by **PyTorch & Scikit-Learn** and a **Native Electron Desktop Client** (React/Vite) for secure, offline, high-performance clinical analysis.
 
 The platform goes beyond simple classification by implementing **Explainable AI (XAI)** via Grad-CAM (Gradient-weighted Class Activation Mapping) and a Clinical Rule Engine to physically highlight structural anomalies on scans and generate professional radiology reports.
