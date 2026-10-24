@@ -9,6 +9,23 @@ import {
 import { jsPDF } from 'jspdf';
 import './index.css';
 
+// --- INJECT BYPASS TUNNEL HEADER ---
+const originalFetch = window.fetch;
+window.fetch = async function () {
+  let [resource, config] = arguments;
+  if (config === undefined) config = {};
+  if (config.headers === undefined) config.headers = {};
+  
+  // Convert Headers object to normal object if necessary, or just set it
+  if (config.headers instanceof Headers) {
+    config.headers.append('Bypass-Tunnel-Reminder', 'true');
+  } else {
+    config.headers['Bypass-Tunnel-Reminder'] = 'true';
+  }
+  
+  return await originalFetch(resource, config);
+};
+
 // --- FORMAT DATE UTILS ---
 const getSystemDate = () => {
   const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
@@ -93,6 +110,52 @@ function Dashboard() {
   const [patients, setPatients] = useState([]);
   const [editingPatient, setEditingPatient] = useState(null);
   const [patientSearch, setPatientSearch] = useState('');
+  const [showQuickPatientForm, setShowQuickPatientForm] = useState(false);
+  const [quickPatient, setQuickPatient] = useState({ name: '', age: '30', gender: 'Male', phone: '', doctor: 'Dr. Smith' });
+  const [toastMessage, setToastMessage] = useState('');
+
+  const saveQuickPatient = async () => {
+    if (!quickPatient.name.trim()) {
+      alert("Please enter patient name");
+      return;
+    }
+    const newPt = {
+      id: `PT-${Math.floor(Math.random() * 90000) + 10000}`,
+      name: quickPatient.name.trim(),
+      dob: '',
+      age: quickPatient.age || '30',
+      gender: quickPatient.gender || 'Male',
+      phone: quickPatient.phone || '',
+      email: '',
+      address: '',
+      history: '',
+      allergies: '',
+      doctor: quickPatient.doctor || 'Dr. Smith',
+      notes: '',
+      studies: 0,
+      lastStudy: 'N/A',
+      status: 'New'
+    };
+    await fetch('/api/v1/patients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPt)
+    });
+    await fetchData();
+    setSelectedStudy(prev => ({
+      ...prev,
+      patientId: newPt.id,
+      patient: newPt.name,
+      age: newPt.age,
+      gender: newPt.gender,
+      phone: newPt.phone,
+      doctor: newPt.doctor
+    }));
+    setShowQuickPatientForm(false);
+    setQuickPatient({ name: '', age: '30', gender: 'Male', phone: '', doctor: 'Dr. Smith' });
+    setToastMessage(`Patient ${newPt.name} (${newPt.id}) registered & selected!`);
+    setTimeout(() => setToastMessage(''), 4000);
+  };
   
   const [studies, setStudies] = useState([]);
   
@@ -451,33 +514,98 @@ function Dashboard() {
             <div className="ws-col-left">
               {selectedStudy.isNew ? (
                 <>
-                  <h3 className="text-sm text-tertiary mb-4 uppercase tracking-wide">Patient Selection</h3>
-                  <div className="mb-6">
-                    <select className="input-field" onChange={(e) => {
-                      const p = patients.find(pt => pt.id === e.target.value);
-                      if (p) {
-                        setSelectedStudy(prev => ({ 
-                          ...prev, 
-                          patientId: p.id, 
-                          patient: p.name, 
-                          age: p.age, 
-                          gender: p.gender,
-                          phone: p.phone,
-                          history: p.history,
-                          allergies: p.allergies,
-                          doctor: p.doctor,
-                          notes: p.notes
-                        }));
-                      } else {
-                        setSelectedStudy(prev => ({ ...prev, patientId: null, patient: null }));
-                      }
-                    }}>
-                      <option value="">-- Search & Select Patient --</option>
-                      {patients.map(p => (
-                        <option key={p.id} value={p.id}>{p.id} - {p.name} ({p.dob || p.age})</option>
-                      ))}
-                    </select>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm text-tertiary uppercase tracking-wide">Patient Selection</h3>
+                    <button 
+                      type="button" 
+                      className="text-xs text-primary underline hover:text-emerald-400 cursor-pointer"
+                      onClick={() => setShowQuickPatientForm(!showQuickPatientForm)}
+                    >
+                      {showQuickPatientForm ? '← Select Existing' : '+ Register New Patient'}
+                    </button>
                   </div>
+
+                  {showQuickPatientForm ? (
+                    <div className="mb-6 bg-app p-4 rounded border border-emerald-500/30 text-sm">
+                      <div className="text-xs text-emerald-400 font-semibold mb-2 uppercase">Quick Register Patient</div>
+                      <div className="mb-2">
+                        <label className="text-xs text-muted block mb-1">Full Name *</label>
+                        <input 
+                          className="input-field" 
+                          placeholder="e.g. John Doe" 
+                          value={quickPatient.name} 
+                          onChange={e => setQuickPatient({...quickPatient, name: e.target.value})} 
+                        />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <div>
+                          <label className="text-xs text-muted block mb-1">Age</label>
+                          <input 
+                            className="input-field" 
+                            placeholder="30" 
+                            value={quickPatient.age} 
+                            onChange={e => setQuickPatient({...quickPatient, age: e.target.value})} 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted block mb-1">Gender</label>
+                          <select 
+                            className="input-field" 
+                            value={quickPatient.gender} 
+                            onChange={e => setQuickPatient({...quickPatient, gender: e.target.value})}
+                          >
+                            <option>Male</option>
+                            <option>Female</option>
+                            <option>Other</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="mb-3">
+                        <label className="text-xs text-muted block mb-1">Mobile Phone</label>
+                        <input 
+                          className="input-field" 
+                          placeholder="+91 9876543210" 
+                          value={quickPatient.phone} 
+                          onChange={e => setQuickPatient({...quickPatient, phone: e.target.value})} 
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" className="btn-primary text-xs w-full" onClick={saveQuickPatient}>
+                          Save & Select Patient
+                        </button>
+                        <button type="button" className="btn-primary text-xs" style={{ background: 'transparent', border: '1px solid var(--border-subtle)' }} onClick={() => setShowQuickPatientForm(false)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-6">
+                      <select className="input-field" value={selectedStudy.patientId || ''} onChange={(e) => {
+                        const p = patients.find(pt => pt.id === e.target.value);
+                        if (p) {
+                          setSelectedStudy(prev => ({ 
+                            ...prev, 
+                            patientId: p.id, 
+                            patient: p.name, 
+                            age: p.age, 
+                            gender: p.gender,
+                            phone: p.phone,
+                            history: p.history,
+                            allergies: p.allergies,
+                            doctor: p.doctor,
+                            notes: p.notes
+                          }));
+                        } else {
+                          setSelectedStudy(prev => ({ ...prev, patientId: null, patient: null }));
+                        }
+                      }}>
+                        <option value="">-- Search & Select Patient ({patients.length} Registered) --</option>
+                        {patients.map(p => (
+                          <option key={p.id} value={p.id}>{p.id} - {p.name} ({p.gender}, {p.age}y)</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {selectedStudy.patientId ? (
                     <>
@@ -833,6 +961,11 @@ function Dashboard() {
 
   return (
     <>
+      {toastMessage && (
+        <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 9999, background: '#10b981', color: '#fff', padding: '12px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.4)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>✓</span> {toastMessage}
+        </div>
+      )}
       <div className="app-layout">
         {/* SIDEBAR */}
       <aside className="sidebar">
@@ -968,6 +1101,89 @@ function Dashboard() {
                     )}
                   </tbody>
                 </table>
+
+                {/* REGISTERED PATIENTS DIRECTORY TABLE ON DASHBOARD */}
+                <div style={{ marginTop: '2.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Users size={20} color="var(--accent-primary, #3b82f6)" />
+                      <h2 style={{ fontSize: '1.15rem', fontWeight: 600 }}>Registered Patients Directory</h2>
+                      <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                        {patients.length} Registered
+                      </span>
+                    </div>
+                    <button className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.8rem' }} onClick={() => {
+                      setActiveSidebar('Patient Directory');
+                      setEditingPatient({ id: `PT-${Math.floor(Math.random() * 90000) + 10000}`, name: '', dob: '', age: '', gender: 'Male', phone: '', email: '', address: '', history: '', allergies: '', doctor: '', notes: '', studies: 0, lastStudy: 'N/A', status: 'New' });
+                    }}>
+                      <Plus size={14} className="mr-1 inline" /> New Patient
+                    </button>
+                  </div>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Patient ID</th>
+                        <th>Full Name</th>
+                        <th>Age · Gender</th>
+                        <th>Phone</th>
+                        <th>Assigned Doctor</th>
+                        <th>Total Studies</th>
+                        <th>Last Visit</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {patients.map(p => (
+                        <tr key={p.id}>
+                          <td className="mono" style={{ color: '#60a5fa' }}>{p.id}</td>
+                          <td className="font-medium">{p.name}</td>
+                          <td>{p.age} · {p.gender}</td>
+                          <td>{p.phone || 'N/A'}</td>
+                          <td>{p.doctor || 'Dr. Smith'}</td>
+                          <td>
+                            <span style={{ background: p.studies > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.08)', color: p.studies > 0 ? '#10b981' : '#94a3b8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>
+                              {p.studies} {p.studies === 1 ? 'Study' : 'Studies'}
+                            </span>
+                          </td>
+                          <td>{p.lastStudy || 'N/A'}</td>
+                          <td><span className="ai-status clear">{p.status || 'Active'}</span></td>
+                          <td>
+                            <div className="flex gap-2">
+                              <button className="action-link" style={{ color: '#38bdf8' }} onClick={() => {
+                                setSelectedStudy({
+                                  isNew: true,
+                                  id: 'New Study',
+                                  study: 'Pending Upload',
+                                  aiType: 'processing',
+                                  aiLabel: 'PENDING',
+                                  patientId: p.id,
+                                  patient: p.name,
+                                  age: p.age,
+                                  gender: p.gender,
+                                  phone: p.phone,
+                                  history: p.history,
+                                  allergies: p.allergies,
+                                  doctor: p.doctor,
+                                  notes: p.notes
+                                });
+                              }}>
+                                + Add Study
+                              </button>
+                              <span className="text-muted">|</span>
+                              <button className="action-link" onClick={() => { setActiveSidebar('Patient Directory'); setEditingPatient(p); }}>
+                                Edit
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {patients.length === 0 && (
+                        <tr><td colSpan="9" className="text-center text-muted p-4">No registered patients in clinical database. Click "New Patient" above.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
 
@@ -1034,8 +1250,12 @@ function Dashboard() {
                         await fetch('/api/v1/patients', {
                           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPatient)
                         });
+                        const savedName = editingPatient.name;
+                        const savedId = editingPatient.id;
                         fetchData();
                         setEditingPatient(null);
+                        setToastMessage(`Patient ${savedName} (${savedId}) saved successfully!`);
+                        setTimeout(() => setToastMessage(''), 4000);
                       }}>Save Patient</button>
                       <button className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--border-subtle)' }} onClick={() => setEditingPatient(null)}>Cancel</button>
                     </div>

@@ -167,9 +167,9 @@ class MedicalAIPipeline:
 
         body_lower = body_part.lower()
 
-        # Execute REAL ML inference if it's a Chest X-Ray and model is loaded
+        # Execute REAL ML inference if it's a Chest X-Ray (and NOT a CT scan)
         xrv_model = self._load_xrv()
-        if xrv_model is not None and ("chest" in body_lower or "lung" in body_lower or "xray" in modality.lower() or "cr" in modality.lower()):
+        if xrv_model is not None and "ct" not in modality.lower() and ("xray" in modality.lower() or "cr" in modality.lower() or "dx" in modality.lower() or ("chest" in body_lower and "mri" not in modality.lower() and "us" not in modality.lower())):
             try:
                 # Prepare image for XRV (1, H, W) normalized [-1024, 1024]
                 img_float = img.astype(np.float32)
@@ -260,8 +260,8 @@ class MedicalAIPipeline:
                 img_norm = (img_float - mean) / std
                 img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
                 
-                # 1. Run Grad-CAM logic
-                grad_cam = GradCAM(ct_model, ct_model.features)
+                # 1. Run Grad-CAM logic targeting denseblock4 (last conv block before classifier)
+                grad_cam = GradCAM(ct_model, ct_model.features.denseblock4)
                 heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
                 
                 # Apply overlay

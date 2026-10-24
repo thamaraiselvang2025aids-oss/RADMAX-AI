@@ -15,10 +15,11 @@ class GradCAM:
         target_layer.register_full_backward_hook(self.save_gradient)
 
     def save_activation(self, module, input, output):
-        self.activations = output
+        self.activations = output.clone() if hasattr(output, 'clone') else output
 
     def save_gradient(self, module, grad_input, grad_output):
-        self.gradients = grad_output[0]
+        if grad_output and len(grad_output) > 0 and grad_output[0] is not None:
+            self.gradients = grad_output[0].clone() if hasattr(grad_output[0], 'clone') else grad_output[0]
 
     def generate_cam(self, input_tensor, target_class=None):
         self.model.eval()
