@@ -482,9 +482,25 @@ function Dashboard() {
     if (!file) return;
     setLoading(true);
     setResult(null);
+
+    let targetModality = modality;
+    if (bodyPart === 'Thyroid' || bodyPart === 'Pregnancy' || bodyPart === 'Breast') {
+      targetModality = 'Ultrasound';
+      setModality('Ultrasound');
+    } else if (bodyPart === 'Stroke' || bodyPart === 'Lung') {
+      targetModality = 'CT';
+      setModality('CT');
+    } else if (bodyPart === 'Brain') {
+      targetModality = 'MRI';
+      setModality('MRI');
+    } else if (bodyPart === 'Chest') {
+      targetModality = 'X-Ray';
+      setModality('X-Ray');
+    }
+
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('modality', modality);
+    formData.append('modality', targetModality);
     formData.append('bodyPart', bodyPart);
 
     try {

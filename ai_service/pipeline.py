@@ -170,9 +170,223 @@ class MedicalAIPipeline:
 
         body_lower = body_part.lower()
 
-        # Execute REAL ML inference if it's a Chest X-Ray (and NOT a CT scan)
+        # 1. Execute ML inference for Thyroid Ultrasound (FIRST Priority for Thyroid / Neck)
+        thyroid_model = self._load_thyroid()
+        is_thyroid = "thyroid" in body_lower or "neck" in body_lower or "thyroid" in modality.lower()
+        if not diseases and is_thyroid and thyroid_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # Grad-CAM for Thyroid US targeting last conv layer
+                target_layer = thyroid_model.layer4[-1] if hasattr(thyroid_model, 'layer4') else thyroid_model.layer4
+                grad_cam = GradCAM(thyroid_model, target_layer)
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                disease_name, explanation = generate_clinical_report("THYROID", predicted_class_idx)
+                
+                with torch.no_grad():
+                    preds = thyroid_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, _ = torch.max(prob, 0)
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "CRITICAL" if "Malignant" in disease_name else "REVIEW"
+                findings = f"Thyroid US XAI Output: {explanation} (Confidence: {confidence_score}%)"
+            except Exception as e:
+                findings = f"Thyroid US inference failed: {str(e)}."
+
+        # 2. Execute ML inference for Fetal / Pregnancy Ultrasound
+        fetal_model = self._load_pregnancy()
+        is_pregnancy = "preg" in body_lower or "fetal" in body_lower or "fetus" in body_lower or "obstetric" in body_lower or "preg" in modality.lower() or "fetal" in modality.lower()
+        if not diseases and is_pregnancy and fetal_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # Grad-CAM for Fetal Ultrasound ResNet18
+                target_layer = fetal_model.layer4[-1] if hasattr(fetal_model, 'layer4') else fetal_model.layer4
+                grad_cam = GradCAM(fetal_model, target_layer)
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                disease_name, explanation = generate_clinical_report("PREGNANCY", predicted_class_idx)
+                
+                with torch.no_grad():
+                    preds = fetal_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, _ = torch.max(prob, 0)
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "CRITICAL" if "Pathological" in disease_name else ("MEDIUM" if "Suspect" in disease_name else "LOW")
+                findings = f"Fetal US XAI Output: {explanation} (Confidence: {confidence_score}%)"
+            except Exception as e:
+                findings = f"Fetal Ultrasound inference failed: {str(e)}."
+
+        # 3. Execute ML inference for Breast Ultrasound
+        breast_model = self._load_breast()
+        is_breast = "breast" in body_lower or "mammary" in body_lower or "breast" in modality.lower()
+        if not diseases and is_breast and breast_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # Grad-CAM for Breast US targeting last layer of layer4
+                target_layer = breast_model.layer4[-1] if hasattr(breast_model, 'layer4') else breast_model.layer4
+                grad_cam = GradCAM(breast_model, target_layer)
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                disease_name, explanation = generate_clinical_report("BREAST", predicted_class_idx)
+                
+                with torch.no_grad():
+                    preds = breast_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, _ = torch.max(prob, 0)
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "CRITICAL" if "Malignant" in disease_name else ("LOW" if "Normal" in disease_name else "REVIEW")
+                findings = f"Breast US XAI Output: {explanation} (Confidence: {confidence_score}%)"
+            except Exception as e:
+                findings = f"Breast US inference failed: {str(e)}."
+
+        # 4. Execute ML inference for Brain Stroke (ResNet18 on Brain CT)
+        stroke_model = self._load_stroke()
+        is_stroke = "stroke" in body_lower or "stroke" in modality.lower() or ("brain" in body_lower and "ct" in modality.lower() and "tumor" not in body_lower)
+        if not diseases and is_stroke and stroke_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # Grad-CAM for Brain Stroke ResNet18
+                grad_cam = GradCAM(stroke_model, stroke_model.layer4[-1])
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                
+                # Apply overlay
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                # Generate exact clinical explanation (Classes: 0: Normal, 1: Stroke)
+                disease_name, explanation = generate_clinical_report("STROKE", predicted_class_idx)
+                
+                with torch.no_grad():
+                    preds = stroke_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, _ = torch.max(prob, 0)
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "CRITICAL" if ("Stroke" in disease_name and "No" not in disease_name) else "LOW"
+                findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
+            except Exception as e:
+                findings = f"Stroke CT inference failed: {str(e)}. Falling back to mock."
+
+        # 5. Execute ML inference for Brain MRI (Tumor)
+        mri_model = self._load_mri()
+        non_brain_keywords = ["stroke", "thyroid", "preg", "fetal", "breast", "lung", "chest", "neck"]
+        is_brain_mri = ("brain" in body_lower or "head" in body_lower or ("mri" in modality.lower() and not any(k in body_lower for k in non_brain_keywords))) and not any(k in body_lower for k in non_brain_keywords)
+        if not diseases and is_brain_mri and mri_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # 1. Run Grad-CAM logic
+                grad_cam = GradCAM(mri_model, mri_model.layer4[-1])
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                
+                # Apply overlay
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                # Generate exact clinical explanation
+                disease_name, explanation = generate_clinical_report("MRI", predicted_class_idx)
+                
+                # Re-run inference just to get probabilities easily
+                with torch.no_grad():
+                    preds = mri_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, _ = torch.max(prob, 0)
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "HIGH" if disease_name != "No Tumor" else "LOW"
+                findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
+            except Exception as e:
+                findings = f"MRI inference failed: {str(e)}. Falling back to mock."
+
+        # 6. Execute ML inference for Lung CT Scan (Pneumonia)
+        ct_model = self._load_ct()
+        is_lung_ct = ("lung" in body_lower or "pulmonary" in body_lower or ("chest" in body_lower and "ct" in modality.lower())) or ("ct" in modality.lower() and not any(k in body_lower for k in ["brain", "stroke", "thyroid", "preg", "fetal", "breast", "neck"]))
+        if not diseases and is_lung_ct and ct_model is not None:
+            try:
+                img_resized = cv2.resize(img, (224, 224))
+                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
+                img_float = img_rgb.astype(np.float32) / 255.0
+                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+                img_norm = (img_float - mean) / std
+                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                
+                # 1. Run Grad-CAM logic targeting denseblock4 (last conv block before classifier)
+                grad_cam = GradCAM(ct_model, ct_model.features.denseblock4)
+                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
+                
+                # Apply overlay
+                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
+                _, buffer = cv2.imencode('.png', heatmap_bgr)
+                heatmap_bytes = buffer.tobytes()
+                
+                # Generate exact clinical explanation
+                disease_name, explanation = generate_clinical_report("CT", predicted_class_idx)
+                
+                # Re-run inference just to get probabilities easily
+                with torch.no_grad():
+                    preds = ct_model(img_tensor)
+                    prob = torch.nn.functional.softmax(preds[0], dim=0)
+                    top_prob, _ = torch.max(prob, 0)
+                
+                confidence_score = float(round(top_prob.item() * 100, 2))
+                diseases = [{"disease": disease_name, "confidence": confidence_score}]
+                priority = "HIGH" if "Pneumonia" in disease_name and "No" not in disease_name else "LOW"
+                findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
+            except Exception as e:
+                findings = f"CT inference failed: {str(e)}. Falling back to mock."
+
+        # 7. Execute REAL ML inference if it's a Chest X-Ray (and NOT CT, Thyroid, Pregnancy, Breast)
         xrv_model = self._load_xrv()
-        if xrv_model is not None and "ct" not in modality.lower() and ("xray" in modality.lower() or "cr" in modality.lower() or "dx" in modality.lower() or ("chest" in body_lower and "mri" not in modality.lower() and "us" not in modality.lower())):
+        is_chest_xray = xrv_model is not None and "ct" not in modality.lower() and not any(k in body_lower for k in ["brain", "stroke", "thyroid", "preg", "fetal", "breast", "neck"]) and ("xray" in modality.lower() or "cr" in modality.lower() or "dx" in modality.lower() or "chest" in body_lower)
+        if not diseases and is_chest_xray:
             try:
                 # Prepare image for XRV (1, H, W) normalized [-1024, 1024]
                 img_float = img.astype(np.float32)
@@ -215,218 +429,6 @@ class MedicalAIPipeline:
                 
             except Exception as e:
                 findings = f"Real ML inference failed: {str(e)}. Falling back to mock."
-
-        # Execute ML inference for Brain Stroke (ResNet18 on Brain CT)
-        stroke_model = self._load_stroke()
-        is_stroke = "stroke" in body_lower or "stroke" in modality.lower() or ("brain" in body_lower and "ct" in modality.lower() and "tumor" not in body_lower)
-        if not diseases and is_stroke and stroke_model is not None:
-            try:
-                img_resized = cv2.resize(img, (224, 224))
-                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
-                img_float = img_rgb.astype(np.float32) / 255.0
-                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
-                img_norm = (img_float - mean) / std
-                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
-                
-                # Grad-CAM for Brain Stroke ResNet18
-                grad_cam = GradCAM(stroke_model, stroke_model.layer4[-1])
-                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
-                
-                # Apply overlay
-                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
-                _, buffer = cv2.imencode('.png', heatmap_bgr)
-                heatmap_bytes = buffer.tobytes()
-                
-                # Generate exact clinical explanation (Classes: 0: Normal, 1: Stroke)
-                disease_name, explanation = generate_clinical_report("STROKE", predicted_class_idx)
-                
-                with torch.no_grad():
-                    preds = stroke_model(img_tensor)
-                    prob = torch.nn.functional.softmax(preds[0], dim=0)
-                    top_prob, _ = torch.max(prob, 0)
-                
-                confidence_score = float(round(top_prob.item() * 100, 2))
-                diseases = [{"disease": disease_name, "confidence": confidence_score}]
-                priority = "CRITICAL" if ("Stroke" in disease_name and "No" not in disease_name) else "LOW"
-                findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
-            except Exception as e:
-                findings = f"Stroke CT inference failed: {str(e)}. Falling back to mock."
-
-        # Execute ML inference for Brain MRI (Tumor)
-        mri_model = self._load_mri()
-        non_brain_keywords = ["stroke", "thyroid", "preg", "fetal", "breast", "lung", "chest", "neck"]
-        is_brain_mri = ("brain" in body_lower or "head" in body_lower or ("mri" in modality.lower() and not any(k in body_lower for k in non_brain_keywords))) and not any(k in body_lower for k in non_brain_keywords)
-        if not diseases and is_brain_mri and mri_model is not None:
-            try:
-                img_resized = cv2.resize(img, (224, 224))
-                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
-                img_float = img_rgb.astype(np.float32) / 255.0
-                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
-                img_norm = (img_float - mean) / std
-                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
-                
-                # 1. Run Grad-CAM logic
-                grad_cam = GradCAM(mri_model, mri_model.layer4[-1])
-                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
-                
-                # Apply overlay
-                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
-                _, buffer = cv2.imencode('.png', heatmap_bgr)
-                heatmap_bytes = buffer.tobytes()
-                
-                # Generate exact clinical explanation
-                disease_name, explanation = generate_clinical_report("MRI", predicted_class_idx)
-                
-                # Re-run inference just to get probabilities easily
-                with torch.no_grad():
-                    preds = mri_model(img_tensor)
-                    prob = torch.nn.functional.softmax(preds[0], dim=0)
-                    top_prob, _ = torch.max(prob, 0)
-                
-                confidence_score = float(round(top_prob.item() * 100, 2))
-                diseases = [{"disease": disease_name, "confidence": confidence_score}]
-                priority = "HIGH" if disease_name != "No Tumor" else "LOW"
-                findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
-            except Exception as e:
-                findings = f"MRI inference failed: {str(e)}. Falling back to mock."
-
-        # Execute ML inference for CT Scan (Pneumonia)
-        ct_model = self._load_ct()
-        if not diseases and "ct" in modality.lower() and "brain" not in body_lower and "stroke" not in body_lower and ct_model is not None:
-            try:
-                img_resized = cv2.resize(img, (224, 224))
-                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
-                img_float = img_rgb.astype(np.float32) / 255.0
-                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
-                img_norm = (img_float - mean) / std
-                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
-                
-                # 1. Run Grad-CAM logic targeting denseblock4 (last conv block before classifier)
-                grad_cam = GradCAM(ct_model, ct_model.features.denseblock4)
-                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
-                
-                # Apply overlay
-                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
-                _, buffer = cv2.imencode('.png', heatmap_bgr)
-                heatmap_bytes = buffer.tobytes()
-                
-                # Generate exact clinical explanation
-                disease_name, explanation = generate_clinical_report("CT", predicted_class_idx)
-                
-                # Re-run inference just to get probabilities easily
-                with torch.no_grad():
-                    preds = ct_model(img_tensor)
-                    prob = torch.nn.functional.softmax(preds[0], dim=0)
-                    top_prob, _ = torch.max(prob, 0)
-                
-                confidence_score = float(round(top_prob.item() * 100, 2))
-                diseases = [{"disease": disease_name, "confidence": confidence_score}]
-                priority = "HIGH" if "Pneumonia" in disease_name and "No" not in disease_name else "LOW"
-                findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
-            except Exception as e:
-                findings = f"CT inference failed: {str(e)}. Falling back to mock."
-
-        # Execute ML inference for Breast Ultrasound
-        breast_model = self._load_breast()
-        is_breast = "breast" in body_lower or "mammary" in body_lower or "breast" in modality.lower()
-        if not diseases and is_breast and breast_model is not None:
-            try:
-                img_resized = cv2.resize(img, (224, 224))
-                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
-                img_float = img_rgb.astype(np.float32) / 255.0
-                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
-                img_norm = (img_float - mean) / std
-                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
-                
-                # Grad-CAM for Breast US targeting last layer of layer4
-                target_layer = breast_model.layer4[-1] if hasattr(breast_model, 'layer4') else breast_model.layer4
-                grad_cam = GradCAM(breast_model, target_layer)
-                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
-                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
-                _, buffer = cv2.imencode('.png', heatmap_bgr)
-                heatmap_bytes = buffer.tobytes()
-                
-                disease_name, explanation = generate_clinical_report("BREAST", predicted_class_idx)
-                
-                with torch.no_grad():
-                    preds = breast_model(img_tensor)
-                    prob = torch.nn.functional.softmax(preds[0], dim=0)
-                    top_prob, _ = torch.max(prob, 0)
-                
-                confidence_score = float(round(top_prob.item() * 100, 2))
-                diseases = [{"disease": disease_name, "confidence": confidence_score}]
-                priority = "CRITICAL" if "Malignant" in disease_name else ("LOW" if "Normal" in disease_name else "REVIEW")
-                findings = f"Breast US XAI Output: {explanation} (Confidence: {confidence_score}%)"
-            except Exception as e:
-                findings = f"Breast US inference failed: {str(e)}."
-                
-        # Execute ML inference for Thyroid Ultrasound
-        thyroid_model = self._load_thyroid()
-        is_thyroid = "thyroid" in body_lower or "neck" in body_lower or "thyroid" in modality.lower()
-        if not diseases and is_thyroid and thyroid_model is not None:
-            try:
-                img_resized = cv2.resize(img, (224, 224))
-                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
-                img_float = img_rgb.astype(np.float32) / 255.0
-                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
-                img_norm = (img_float - mean) / std
-                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
-                
-                # Grad-CAM for Thyroid US targeting last conv layer
-                target_layer = thyroid_model.layer4[-1] if hasattr(thyroid_model, 'layer4') else thyroid_model.layer4
-                grad_cam = GradCAM(thyroid_model, target_layer)
-                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
-                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
-                _, buffer = cv2.imencode('.png', heatmap_bgr)
-                heatmap_bytes = buffer.tobytes()
-                
-                disease_name, explanation = generate_clinical_report("THYROID", predicted_class_idx)
-                
-                with torch.no_grad():
-                    preds = thyroid_model(img_tensor)
-                    prob = torch.nn.functional.softmax(preds[0], dim=0)
-                    top_prob, _ = torch.max(prob, 0)
-                
-                confidence_score = float(round(top_prob.item() * 100, 2))
-                diseases = [{"disease": disease_name, "confidence": confidence_score}]
-                priority = "CRITICAL" if "Malignant" in disease_name else "REVIEW"
-                findings = f"Thyroid US XAI Output: {explanation} (Confidence: {confidence_score}%)"
-            except Exception as e:
-                findings = f"Thyroid US inference failed: {str(e)}."
-
-        # Execute ML inference for Fetal / Pregnancy Ultrasound
-        fetal_model = self._load_pregnancy()
-        is_pregnancy = "preg" in body_lower or "fetal" in body_lower or "fetus" in body_lower or "obstetric" in body_lower or "preg" in modality.lower() or "fetal" in modality.lower()
-        if not diseases and is_pregnancy and fetal_model is not None:
-            try:
-                img_resized = cv2.resize(img, (224, 224))
-                img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2RGB)
-                img_float = img_rgb.astype(np.float32) / 255.0
-                mean, std = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
-                img_norm = (img_float - mean) / std
-                img_tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
-                
-                # Grad-CAM for Fetal Ultrasound ResNet18
-                target_layer = fetal_model.layer4[-1] if hasattr(fetal_model, 'layer4') else fetal_model.layer4
-                grad_cam = GradCAM(fetal_model, target_layer)
-                heatmap_arr, predicted_class_idx = grad_cam.generate_cam(img_tensor)
-                heatmap_bgr = apply_gradcam_overlay(img, heatmap_arr)
-                _, buffer = cv2.imencode('.png', heatmap_bgr)
-                heatmap_bytes = buffer.tobytes()
-                
-                disease_name, explanation = generate_clinical_report("PREGNANCY", predicted_class_idx)
-                
-                with torch.no_grad():
-                    preds = fetal_model(img_tensor)
-                    prob = torch.nn.functional.softmax(preds[0], dim=0)
-                    top_prob, _ = torch.max(prob, 0)
-                
-                confidence_score = float(round(top_prob.item() * 100, 2))
-                diseases = [{"disease": disease_name, "confidence": confidence_score}]
-                priority = "CRITICAL" if "Pathological" in disease_name else ("MEDIUM" if "Suspect" in disease_name else "LOW")
-                findings = f"Fetal US XAI Output: {explanation} (Confidence: {confidence_score}%)"
-            except Exception as e:
-                findings = f"Fetal Ultrasound inference failed: {str(e)}."
 
         # Mock fallback for non-chest (like Brain MRI) if no real model matched
         if not diseases and "brain" in body_lower:
