@@ -280,7 +280,7 @@ class MedicalAIPipeline:
                 
                 confidence_score = float(round(top_prob.item() * 100, 2))
                 diseases = [{"disease": disease_name, "confidence": confidence_score}]
-                priority = "HIGH" if disease_name == "COVID-19" else "LOW"
+                priority = "HIGH" if "Pneumonia" in disease_name and "No" not in disease_name else "LOW"
                 findings = f"XAI Clinical Output: {explanation} (Confidence: {confidence_score}%)"
             except Exception as e:
                 findings = f"CT inference failed: {str(e)}. Falling back to mock."

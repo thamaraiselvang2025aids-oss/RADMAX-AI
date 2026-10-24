@@ -82,13 +82,13 @@ def generate_clinical_report(modality, target_class_idx):
             return disease, "No significant structural anomalies or mass effects were detected. The highlighted regions represent normal anatomical structures and symmetry."
 
     elif modality == "CT":
-        classes = ["COVID-19", "Non-COVID"]
+        classes = ["Pneumonia", "No Pneumonia"]
         disease = classes[target_class_idx] if target_class_idx < len(classes) else "Unknown"
         
-        if disease == "COVID-19":
-            return disease, "The Grad-CAM analysis has isolated peripheral, bilateral regions of ground-glass opacities and pulmonary consolidations. These highlighted patterns are highly specific to SARS-CoV-2 viral pneumonia."
+        if disease == "Pneumonia":
+            return disease, "The Grad-CAM analysis has isolated peripheral, bilateral regions of ground-glass opacities and pulmonary consolidations. These highlighted patterns are characteristic of acute Pneumonia (pulmonary alveolar infiltrate)."
         else:
-            return disease, "The scan appears clear of COVID-19 specific consolidations. The highlighted areas correspond to normal pulmonary vasculature and bronchial pathways."
+            return disease, "The scan appears clear of acute pneumonic consolidations or consolidative opacities. The highlighted areas correspond to normal pulmonary vasculature and clear bronchial pathways (No Pneumonia detected)."
             
     return "Unknown", "A radiologically significant pattern was identified."
 
