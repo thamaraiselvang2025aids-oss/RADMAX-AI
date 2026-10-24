@@ -182,8 +182,20 @@ function Dashboard() {
   const [modality, setModality] = useState('MRI');
   const [bodyPart, setBodyPart] = useState('Brain');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
   const fileInputRef = useRef(null);
+
+  const handleBodyPartChange = (val) => {
+    setBodyPart(val);
+    if (val === 'Thyroid' || val === 'Breast' || val === 'Pregnancy') {
+      setModality('Ultrasound');
+    } else if (val === 'Chest') {
+      setModality('X-Ray');
+    } else if (val === 'Stroke' || val === 'Lung') {
+      setModality('CT');
+    } else if (val === 'Brain') {
+      setModality('MRI');
+    }
+  };
   
   // Viewer State
   const [zoom, setZoom] = useState(1);
@@ -745,13 +757,15 @@ function Dashboard() {
                             </select>
                           </div>
                           <div style={{ flex: 1 }}>
-                            <label className="text-xs text-muted block mb-1 uppercase tracking-wider">Region</label>
-                            <select className="input-field" value={bodyPart} onChange={(e) => setBodyPart(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
-                              <option value="Brain">Brain</option>
-                              <option value="Lung">Lung</option>
-                              <option value="Chest">Chest</option>
-                              <option value="Breast">Breast</option>
-                              <option value="Thyroid">Thyroid</option>
+                            <label className="text-xs text-muted block mb-1 uppercase tracking-wider">Region / Clinical Focus</label>
+                            <select className="input-field" value={bodyPart} onChange={(e) => handleBodyPartChange(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
+                              <option value="Brain">Brain (Tumor MRI)</option>
+                              <option value="Stroke">Brain (Stroke CT)</option>
+                              <option value="Lung">Lung (Pneumonia CT)</option>
+                              <option value="Chest">Chest (X-Ray)</option>
+                              <option value="Breast">Breast (Ultrasound)</option>
+                              <option value="Thyroid">Thyroid (Ultrasound)</option>
+                              <option value="Pregnancy">Pregnancy / Fetus (Ultrasound)</option>
                             </select>
                           </div>
                         </div>
@@ -834,12 +848,12 @@ function Dashboard() {
               {result && selectedStudy.isNew && (
                 <div className="xai-result-panel" style={{ marginTop: 0 }}>
                   {result.heatmapOverlayUrl && <img src={result.heatmapOverlayUrl} className="xai-img" alt="Grad-CAM XAI" />}
-                  <div className="flex items-center gap-2 font-medium mb-2" style={{ color: result.emergencyPriority === 'HIGH' ? 'var(--status-urgent)' : 'var(--text-primary)' }}>
+                  <div className="flex items-center gap-2 font-medium mb-2" style={{ color: (result.emergencyPriority === 'HIGH' || result.emergencyPriority === 'CRITICAL') ? 'var(--status-urgent)' : (result.emergencyPriority === 'MEDIUM' || result.emergencyPriority === 'REVIEW' ? '#f59e0b' : 'var(--status-positive)') }}>
                     <AlertTriangle size={16} /> {result.diseasesDetected?.[0]?.disease || 'Standard Finding'}
                   </div>
                   <div className="mb-4">
                     <p className="text-sm"><span className="text-muted">Confidence:</span> <span className="font-medium text-primary">{result.confidenceScore}%</span></p>
-                    <p className="text-sm"><span className="text-muted">Severity:</span> <span className="font-medium" style={{ color: result.emergencyPriority === 'HIGH' ? 'var(--status-urgent)' : 'var(--text-primary)' }}>{result.emergencyPriority}</span></p>
+                    <p className="text-sm"><span className="text-muted">Severity:</span> <span className="font-medium" style={{ color: (result.emergencyPriority === 'HIGH' || result.emergencyPriority === 'CRITICAL') ? 'var(--status-urgent)' : (result.emergencyPriority === 'MEDIUM' || result.emergencyPriority === 'REVIEW' ? '#f59e0b' : 'var(--status-positive)') }}>{result.emergencyPriority}</span></p>
                   </div>
                   <div className="mb-4">
                     <h4 className="text-xs text-muted mb-2 uppercase">AI Explanation</h4>

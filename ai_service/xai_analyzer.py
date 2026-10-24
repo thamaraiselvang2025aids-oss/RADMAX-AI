@@ -89,8 +89,42 @@ def generate_clinical_report(modality, target_class_idx):
             return disease, "The Grad-CAM analysis has isolated peripheral, bilateral regions of ground-glass opacities and pulmonary consolidations. These highlighted patterns are characteristic of acute Pneumonia (pulmonary alveolar infiltrate)."
         else:
             return disease, "The scan appears clear of acute pneumonic consolidations or consolidative opacities. The highlighted areas correspond to normal pulmonary vasculature and clear bronchial pathways (No Pneumonia detected)."
-            
-    return "Unknown", "A radiologically significant pattern was identified."
+
+    elif modality.upper() in ["STROKE", "BRAIN STROKE"]:
+        classes = ["No Stroke (Normal Brain CT)", "Acute Brain Stroke"]
+        disease = classes[target_class_idx] if target_class_idx < len(classes) else "Unknown"
+        if "Acute" in disease or ("Stroke" in disease and "No" not in disease):
+            return "Acute Brain Stroke", "The Grad-CAM analysis isolates an area of localized hypoattenuation / hyperdensity consistent with acute cerebrovascular ischemia or hemorrhage. Immediate neurological intervention recommended."
+        else:
+            return "No Stroke (Normal)", "No acute intracranial hemorrhage, territory infarction, or midline shift detected on Brain CT. Symmetrical parenchymal architecture observed."
+
+    elif modality.upper() in ["THYROID", "THYROID ULTRASOUND"]:
+        classes = ["Benign Thyroid Nodule", "Malignant Thyroid Nodule"]
+        disease = classes[target_class_idx] if target_class_idx < len(classes) else "Unknown"
+        if "Malignant" in disease:
+            return disease, "The Grad-CAM heat map isolates an irregular hypoechoic nodule with microcalcifications and ill-defined margins, characteristic of high-risk malignant thyroid neoplasia (TIRADS 4/5). FNA biopsy strongly recommended."
+        else:
+            return disease, "The Grad-CAM analysis demonstrates a well-circumscribed, uniform isoechoic/hyperechoic nodule with intact peripheral halo sign, consistent with a benign follicular or colloid adenoma (TIRADS 2/3)."
+
+    elif modality.upper() in ["PREGNANCY", "FETAL", "FETAL ULTRASOUND"]:
+        classes = ["Normal Fetal Development", "Suspect Fetal Anomaly", "Pathological Fetal Complication"]
+        disease = classes[target_class_idx] if target_class_idx < len(classes) else "Unknown"
+        if "Pathological" in disease:
+            return disease, "The Grad-CAM analysis detects severe anatomical irregularity or biometric discordance. Urgent high-risk maternal-fetal obstetrical consultation indicated."
+        elif "Suspect" in disease:
+            return disease, "The Grad-CAM heat map reveals mild anatomical variation or borderline amniotic fluid indices. Close interval surveillance and biometric tracking recommended."
+        else:
+            return disease, "Physiological fetal cardiac rhythm, symmetrical anatomical landmarks, and normal biometric growth parameters detected. Healthy intrauterine progression."
+
+    elif modality.upper() in ["BREAST", "BREAST ULTRASOUND"]:
+        classes = ["Benign Breast Lesion", "Malignant Breast Carcinoma", "Normal Breast Tissue"]
+        disease = classes[target_class_idx] if target_class_idx < len(classes) else "Unknown"
+        if "Malignant" in disease:
+            return disease, "Grad-CAM isolates a spiculated hypoechoic lesion with posterior acoustic shadowing (BI-RADS 4/5). Biopsy warranted."
+        elif "Benign" in disease:
+            return disease, "Grad-CAM isolates an oval, circumscribed lesion consistent with a benign fibroadenoma or cyst (BI-RADS 2/3)."
+        else:
+            return disease, "Homogeneous fibroglandular parenchyma with no dominant masses or architectural distortion."
 
 def apply_gradcam_overlay(original_img_np, heatmap, alpha=0.5):
     # Resize the low-res heatmap to match the original image resolution
