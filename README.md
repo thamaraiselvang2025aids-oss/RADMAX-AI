@@ -34,26 +34,61 @@ MedVision AI is designed specifically for integration into a hospital's radiolog
 ## 📂 Project Directory Structure
 
 ```text
-ct_mri/
-├── ai_service/                 # 🐍 Python / FastAPI Backend Engine
-│   ├── data/                   # Raw & processed datasets for training
-│   ├── models/                 # Compiled .pth (PyTorch) and .pkl (Scikit) weights
-│   ├── main.py                 # FastAPI Application Server & API Routes
-│   ├── pipeline.py             # Image preprocessing & PyTorch Inference router
-│   ├── xai_analyzer.py         # Grad-CAM implementation & Clinical Rule Engine
-│   ├── medvision_clinical.db   # SQLite Database (Patients, Studies, Reports)
-│   ├── train_medical_models.py # PyTorch CNN Training Scripts
-│   ├── train_tabular_*.py      # Scikit-Learn Random Forest Training Scripts
-│   └── requirements.txt        # Python Dependencies
-└── frontend/                   # 🖥️ Electron / React Desktop App
-    ├── electron/               # Electron Native Window Configuration
-    │   └── main.cjs
-    ├── src/                    # React UI & Vite Configuration
-    │   ├── App.jsx             # Main Workstation, Dashboard, & API Logic
-    │   ├── index.css           # Premium Dark-Mode Glassmorphism styling
-    │   └── main.jsx            # React Entry Point
-    ├── package.json            # Node Dependencies
-    └── vite.config.js          # Vite Bundler Config
+RADMAX-AI/
+├── ai_service/                      # 🐍 Python 3.10+ / FastAPI Deep Learning & XAI Engine
+│   ├── data/                        # Datasets (Brain MRI, Lung CT, Ultrasound, Tabular Vitals)
+│   ├── models/                      # Trained PyTorch (.pth) & Scikit-Learn (.pkl) model weights
+│   ├── main.py                      # FastAPI REST API Server & Unified Static Workstation mount
+│   ├── pipeline.py                  # PyTorch inference router (Brain MRI, Lung CT, Breast/Thyroid/Pregnancy US)
+│   ├── xai_analyzer.py              # Grad-CAM visual explainability engine & Clinical Rule Engine
+│   ├── medvision_clinical.db        # SQLite clinical database (Patients, Studies, Vitals, Reports)
+│   ├── train_medical_models.py      # PyTorch CNN training pipelines (ResNet18, DenseNet121)
+│   ├── train_extra_vision_models.py # Transfer learning pipelines for ultrasound imaging
+│   ├── train_tabular_*.py           # Scikit-Learn RandomForest models (Stroke risk, Fetal health)
+│   ├── evaluate_ct.py / evaluate_mri.py # Model validation & metric reporting scripts
+│   └── requirements.txt             # Python backend dependencies
+│
+├── frontend/                        # 🖥️ Clinical Workstation & Native Electron Client
+│   ├── dist/                        # Pre-compiled production bundle (served directly by FastAPI)
+│   ├── electron/                    # Native Desktop window configuration
+│   │   └── main.cjs                 # Electron main process wrapper
+│   ├── src/                         # React 19 UI source code
+│   │   ├── App.jsx                  # Clinical workstation, EHR intake, XAI dossier, 4-tab settings
+│   │   ├── index.css                # Glassmorphism dark mode & clinical contrast white theme CSS
+│   │   └── main.jsx                 # React root mount
+│   ├── package.json                 # Desktop client dependencies & scripts
+│   └── vite.config.js               # Vite bundler configuration
+│
+├── src/                             # 🌐 Enterprise PACS & Hospital Management Platform (React / TS)
+│   ├── components/                  # Clinical modules & viewer components
+│   │   ├── AIChatBot.tsx            # Copilot diagnostic reasoning assistant
+│   │   ├── AIReportBuilder.tsx      # Radiologist structured report composer
+│   │   ├── AuditLogs.tsx            # HIPAA compliance access & study audit trail
+│   │   ├── DiseaseProgress.tsx      # Longitudinal scan & lesion tracking
+│   │   ├── PACSViewer.tsx           # Multi-frame DICOM viewing canvas with WW/WL controls
+│   │   ├── Sidebar.tsx              # Role-based clinical navigation
+│   │   └── modules/                 # Hospital department modules:
+│   │       ├── AiModelsModule.tsx   # Model registry, inference metrics, & status
+│   │       ├── AnalyticsModule.tsx  # Hospital diagnostic throughput analytics
+│   │       ├── AppointmentsModule.tsx # Patient imaging scheduling & queue
+│   │       ├── DepartmentsModule.tsx# Radiology, Oncology, & Neurology department manager
+│   │       ├── HospitalsModule.tsx  # Multi-facility clinical network manager
+│   │       ├── NotificationsModule.tsx # Urgent triage & critical scan alerts
+│   │       ├── RadiologistsModule.tsx # Attending physician rosters & licensing
+│   │       └── ResearchModule.tsx   # Clinical trials & dataset cohort builder
+│   ├── views/                       # Full-page application views (LoginView.tsx, etc.)
+│   ├── services/                    # Client services (dicom.ts - DICOM parsing & PACS integration)
+│   ├── middleware/                  # Client-side security (auth.ts - JWT verification & RBAC)
+│   ├── db/                          # Database connection layer (db.ts - PostgreSQL integration)
+│   ├── types.ts                     # TypeScript interfaces for patients, scans, and reports
+│   └── App.tsx                      # Root application layout for enterprise PACS portal
+│
+├── server.ts                        # ⚡ Node.js / Express API Gateway (Auth, DICOM Ingest, Reverse Proxy)
+├── start_medvision.bat              # 🚀 1-Click launcher: boots AI backend & opens unified workstation
+├── start_localtunnel.bat            # 🌐 1-Click launcher: exposes unified platform to secure public URL
+├── Dockerfile / docker-compose.yml  # 🐳 Multi-container orchestration (FastAPI + Node + PostgreSQL)
+├── RADMAX_AI_Colab.ipynb            # ☁️ Google Colab end-to-end cloud training & evaluation notebook
+└── DOCUMENTATION.md                 # 📘 Enterprise system architecture & interactive design blueprint
 ```
 
 ---
