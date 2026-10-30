@@ -221,6 +221,7 @@ function Dashboard() {
   const [modality, setModality] = useState('MRI');
   const [bodyPart, setBodyPart] = useState('Brain');
   const [loading, setLoading] = useState(false);
+  const [viewerMode, setViewerMode] = useState('heatmap'); // 'heatmap' | 'scan' | 'split'
   const fileInputRef = useRef(null);
 
   const handleBodyPartChange = (val) => {
@@ -374,6 +375,7 @@ function Dashboard() {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       setResult(null);
+      setViewerMode('scan');
     }
   };
 
@@ -549,6 +551,9 @@ function Dashboard() {
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       setResult(data);
+      if (data.heatmapOverlayUrl) {
+        setViewerMode('heatmap');
+      }
     } catch (err) {
       console.error(err);
       alert("Error contacting local FastAPI ML Backend. Ensure it is running.");
@@ -1007,46 +1012,134 @@ function Dashboard() {
                   <>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,.dcm" />
                     {preview ? (
-                      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <img 
-                          src={preview} 
-                          alt="Medical scan preview"
-                          style={{ 
-                            maxHeight: '440px', maxWidth: '85%', objectFit: 'contain',
-                            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                            filter: `brightness(${brightness}%) contrast(${contrast}%)`,
-                            transition: isDragging ? 'none' : 'transform 0.1s'
-                          }} 
-                        />
-                        
-                        {/* Action Dock beneath image */}
-                        <div className="pacs-action-dock">
-                          <div className="flex items-center justify-between text-xs text-muted">
-                            <span className="mono">Input: {modality} · {bodyPart}</span>
-                            <span style={{ color: '#10b981' }}>Ready for Inference</span>
+                      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        {/* Top View Mode Switcher when Grad-CAM heatmap is available */}
+                        {result?.heatmapOverlayUrl && (
+                          <div className="pacs-view-mode-bar" onClick={e => e.stopPropagation()}>
+                            <button 
+                              type="button"
+                              className={`pacs-mode-pill ${viewerMode === 'scan' ? 'active' : ''}`}
+                              onClick={() => setViewerMode('scan')}
+                            >
+                              Anatomical Scan
+                            </button>
+                            <button 
+                              type="button"
+                              className={`pacs-mode-pill ${viewerMode === 'heatmap' ? 'active' : ''}`}
+                              onClick={() => setViewerMode('heatmap')}
+                            >
+                              <Sparkles size={13} color="#f59e0b" /> AI Grad-CAM Overlay
+                            </button>
+                            <button 
+                              type="button"
+                              className={`pacs-mode-pill ${viewerMode === 'split' ? 'active' : ''}`}
+                              onClick={() => setViewerMode('split')}
+                            >
+                              <Layers size={13} /> Split Comparison
+                            </button>
                           </div>
-                          <button 
-                            className="btn-primary" 
-                            onClick={runDiagnostics} 
-                            disabled={loading}
-                            style={{ 
-                              padding: '0.85rem', fontWeight: 700, 
-                              fontSize: '0.92rem', letterSpacing: '0.04em',
-                              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                              boxShadow: '0 4px 18px rgba(37, 99, 235, 0.5)'
-                            }}
-                          >
-                            {loading ? (
-                              <span className="flex items-center gap-2">
-                                <Activity className="spin" size={17} /> Running Deep Learning Diagnostics...
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-2">
-                                <Sparkles size={17} /> Execute AI Diagnostics & Grad-CAM
-                              </span>
+                        )}
+
+                        {viewerMode === 'split' && result?.heatmapOverlayUrl ? (
+                          /* Side-by-Side Dual View */
+                          <div className="pacs-split-view-container">
+                            <div className="pacs-split-pane">
+                              <span className="pacs-pane-label">Original Scan Slice</span>
+                              <img 
+                                src={preview} 
+                                alt="Original scan"
+                                style={{ 
+                                  maxHeight: '380px', maxWidth: '90%', objectFit: 'contain',
+                                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                                  filter: `brightness(${brightness}%) contrast(${contrast}%)`
+                                }} 
+                              />
+                            </div>
+                            <div className="pacs-split-pane">
+                              <span className="pacs-pane-label gradcam">Grad-CAM XAI Saliency</span>
+                              <img 
+                                src={result.heatmapOverlayUrl} 
+                                alt="Grad-CAM Overlay"
+                                style={{ 
+                                  maxHeight: '380px', maxWidth: '90%', objectFit: 'contain',
+                                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                                  filter: `brightness(${brightness}%) contrast(${contrast}%)`
+                                }} 
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          /* Single Focused View (Grad-CAM or Anatomical Scan) */
+                          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img 
+                              src={(viewerMode === 'heatmap' && result?.heatmapOverlayUrl) ? result.heatmapOverlayUrl : preview} 
+                              alt="Medical scan preview"
+                              style={{ 
+                                maxHeight: '440px', maxWidth: '85%', objectFit: 'contain',
+                                transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                                filter: `brightness(${brightness}%) contrast(${contrast}%)`,
+                                transition: isDragging ? 'none' : 'transform 0.1s'
+                              }} 
+                            />
+                            {result?.heatmapOverlayUrl && viewerMode === 'heatmap' && (
+                              <div className="pacs-active-layer-badge">
+                                <Sparkles size={12} color="#f59e0b" /> GRAD-CAM ACTIVATION LAYER ACTIVE
+                              </div>
                             )}
-                          </button>
-                        </div>
+                          </div>
+                        )}
+                        
+                        {/* Action Dock beneath image (Pre-Inference) */}
+                        {!result && (
+                          <div className="pacs-action-dock">
+                            <div className="flex items-center justify-between text-xs text-muted">
+                              <span className="mono">Input: {modality} · {bodyPart}</span>
+                              <span style={{ color: '#10b981' }}>Ready for Inference</span>
+                            </div>
+                            <button 
+                              className="btn-primary" 
+                              onClick={runDiagnostics} 
+                              disabled={loading}
+                              style={{ 
+                                padding: '0.85rem', fontWeight: 700, 
+                                fontSize: '0.92rem', letterSpacing: '0.04em',
+                                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                                boxShadow: '0 4px 18px rgba(37, 99, 235, 0.5)'
+                              }}
+                            >
+                              {loading ? (
+                                <span className="flex items-center gap-2">
+                                  <Activity className="spin" size={17} /> Running Deep Learning Diagnostics...
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-2">
+                                  <Sparkles size={17} /> Execute AI Diagnostics & Grad-CAM
+                                </span>
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Re-analyze / Change Scan Bar (Post-Inference) */}
+                        {result && (
+                          <div className="pacs-reanalyze-bar" onClick={e => e.stopPropagation()}>
+                            <button 
+                              type="button" 
+                              className="btn-secondary text-xs" 
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              Upload Different Scan
+                            </button>
+                            <button 
+                              type="button" 
+                              className="btn-secondary text-xs" 
+                              onClick={runDiagnostics} 
+                              disabled={loading}
+                            >
+                              <RotateCcw size={12} /> Re-run Inference
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       /* Clean, Elegant Medical Scan Upload Bay */
@@ -1170,15 +1263,20 @@ function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Heatmap Thumbnail */}
+                    {/* Visual Canvas Active Indicator */}
                     {result.heatmapOverlayUrl && (
-                      <div className="ai-heatmap-section">
-                        <div className="text-xs text-muted uppercase font-semibold mb-1 flex items-center gap-1.5">
-                          <Eye size={13} color="#60a5fa" /> Grad-CAM Activation Heatmap
-                        </div>
-                        <div className="ai-heatmap-thumb-card">
-                          <img src={result.heatmapOverlayUrl} alt="Grad-CAM Saliency Overlay" />
-                        </div>
+                      <div className="p-2.5 rounded-lg border border-subtle bg-app text-xs flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 font-medium text-muted">
+                          <Sparkles size={14} color="#f59e0b" /> Grad-CAM Live on Canvas
+                        </span>
+                        <button 
+                          type="button"
+                          className="text-xs font-semibold cursor-pointer"
+                          style={{ background: 'transparent', border: 'none', color: '#3b82f6' }}
+                          onClick={() => setViewerMode(viewerMode === 'heatmap' ? 'scan' : 'heatmap')}
+                        >
+                          {viewerMode === 'heatmap' ? 'Show Scan' : 'Show Grad-CAM'}
+                        </button>
                       </div>
                     )}
 
