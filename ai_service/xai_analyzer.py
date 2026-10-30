@@ -141,3 +141,45 @@ def apply_gradcam_overlay(original_img_np, heatmap, alpha=0.5):
     # Superimpose heatmap onto the original scan
     overlay = cv2.addWeighted(heatmap_colored, alpha, original_img_np, 1 - alpha, 0)
     return overlay
+
+def extract_abnormal_bounding_box(heatmap, threshold=0.45):
+    """
+    Extracts the bounding box and center coordinates of the peak abnormal activation region
+    from the Grad-CAM heatmap.
+    Returns normalized percentage coordinates (x, y, width, height, centerX, centerY).
+    """
+    try:
+        h_map, w_map = heatmap.shape[:2]
+        
+        # Binary mask of the highest activation hotspot
+        binary_mask = np.uint8((heatmap > threshold) * 255)
+        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # If no contour at high threshold, try adaptive thresholding at 35%
+        if not contours:
+            binary_mask = np.uint8((heatmap > 0.35) * 255)
+            contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+        if contours:
+            largest = max(contours, key=cv2.contourArea)
+            if cv2.contourArea(largest) >= 4:
+                x, y, w, h = cv2.boundingRect(largest)
+                # Pad slightly (8%) to encompass the full anatomical lesion margin
+                pad_x = int(w * 0.08)
+                pad_y = int(h * 0.08)
+                x = max(0, x - pad_x)
+                y = max(0, y - pad_y)
+                w = min(w_map - x, w + 2 * pad_x)
+                h = min(h_map - y, h + 2 * pad_y)
+                
+                return {
+                    "x": round((x / w_map) * 100, 1),
+                    "y": round((y / h_map) * 100, 1),
+                    "width": round((w / w_map) * 100, 1),
+                    "height": round((h / h_map) * 100, 1),
+                    "centerX": round(((x + w / 2) / w_map) * 100, 1),
+                    "centerY": round(((y + h / 2) / h_map) * 100, 1)
+                }
+    except Exception as e:
+        print(f"Error in extract_abnormal_bounding_box: {e}")
+    return None
