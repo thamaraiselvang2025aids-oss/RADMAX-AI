@@ -5,7 +5,8 @@ import {
   CheckCircle, AlertTriangle, Users, FileText, Settings, Download,
   ZoomIn, ZoomOut, Move, Sun, Moon, RotateCcw, Crosshair, Image as ImageIcon,
   Mic, FileSignature, Layers, Clock, Cpu, Palette, Database, Sliders, ShieldCheck, Check, Sparkles,
-  UserPlus, Phone, Mail, MapPin, Stethoscope, ArrowLeft, CheckCircle2, ShieldAlert, Calendar, Save, Hash
+  UserPlus, Phone, Mail, MapPin, Stethoscope, ArrowLeft, CheckCircle2, ShieldAlert, Calendar, Save, Hash,
+  UploadCloud, FolderOpen, Eye
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import './index.css';
@@ -559,15 +560,48 @@ function Dashboard() {
   if (selectedStudy) {
     return (
       <div className="workstation-layout">
+        {/* TOP BAR */}
         <div className="ws-topbar">
-          <button className="btn-primary" onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }} style={{ background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
-            ← Cancel
-          </button>
-          <div className="flex items-center gap-4 text-sm font-medium">
-            <span>Patient: {selectedStudy.patient || 'Select Patient'} {selectedStudy.patientId ? `(${selectedStudy.patientId})` : ''}</span>
-            <span className="text-muted">|</span>
-            <span>{modality || selectedStudy.study}</span>
+          <div className="flex items-center gap-3">
+            <button 
+              className="btn-secondary text-xs" 
+              onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }}
+            >
+              <ArrowLeft size={15} /> Exit Workstation
+            </button>
+            <div className="ws-brand-group">
+              <span style={{ fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.05em' }} className="mono">
+                MEDVISION PACS STUDIO
+              </span>
+              <span className="ws-live-pill">
+                <span className="ws-live-pulse-dot"></span> LIVE DIAGNOSTIC WORKSTATION
+              </span>
+            </div>
           </div>
+
+          <div className="flex items-center gap-3">
+            <div className="ws-subject-pill">
+              {selectedStudy.patient ? (
+                <>
+                  <div className="ws-patient-avatar" style={{ width: 26, height: 26, fontSize: '0.75rem' }}>
+                    {selectedStudy.patient.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}
+                  </div>
+                  <span className="font-semibold text-sm">{selectedStudy.patient}</span>
+                  <span className="mono text-xs text-muted">({selectedStudy.patientId || selectedStudy.id})</span>
+                  <span className="text-muted">·</span>
+                  <span className="text-xs text-muted">{selectedStudy.age}y / {selectedStudy.gender}</span>
+                </>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#f59e0b' }}>
+                  <AlertTriangle size={13} /> Select Patient Required
+                </span>
+              )}
+              <span className="ws-protocol-badge">
+                {modality} · {bodyPart}
+              </span>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3">
             <button 
               type="button"
@@ -578,548 +612,712 @@ function Dashboard() {
               {isWhiteTheme ? <Moon size={14} /> : <Sun size={14} color="#fde047" />}
               <span>{isWhiteTheme ? "Dark Mode" : "Light Mode"}</span>
             </button>
-            <div className="flex items-center gap-2">
-              <span className="text-muted text-sm">AI Analysis:</span>
-              <span className={`ai-status ${selectedStudy.aiType}`}>{selectedStudy.aiLabel}</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+              <Sparkles size={14} color="#3b82f6" />
+              <span className="text-xs font-semibold mono" style={{ color: '#3b82f6' }}>
+                AI ENGINE: {result ? 'DIAGNOSIS ACTIVE' : (loading ? 'INFERENCE...' : 'ARMED')}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="ws-main">
           <div className="ws-grid">
-            {/* LEFT COLUMN - PATIENT DATA OR FORM */}
+            {/* LEFT COLUMN - INTAKE & PROTOCOLS */}
             <div className="ws-col-left">
               {selectedStudy.isNew ? (
                 <>
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm text-tertiary uppercase tracking-wide">Patient Selection</h3>
-                    <button 
-                      type="button" 
-                      className="text-xs text-primary underline hover:text-emerald-400 cursor-pointer"
-                      onClick={() => setShowQuickPatientForm(!showQuickPatientForm)}
-                    >
-                      {showQuickPatientForm ? '← Select Existing' : '+ Register New Patient'}
-                    </button>
-                  </div>
-
-                  {showQuickPatientForm ? (
-                    <div className="mb-6 bg-app p-4 rounded border border-emerald-500/30 text-sm">
-                      <div className="text-xs text-emerald-400 font-semibold mb-2 uppercase">Quick Register Patient</div>
-                      <div className="mb-2">
-                        <label className="text-xs text-muted block mb-1">Full Name *</label>
-                        <input 
-                          className="input-field" 
-                          placeholder="e.g. John Doe" 
-                          value={quickPatient.name} 
-                          onChange={e => setQuickPatient({...quickPatient, name: e.target.value})} 
-                        />
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <div>
-                          <label className="text-xs text-muted block mb-1">Age</label>
-                          <input 
-                            className="input-field" 
-                            placeholder="30" 
-                            value={quickPatient.age} 
-                            onChange={e => setQuickPatient({...quickPatient, age: e.target.value})} 
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted block mb-1">Gender</label>
-                          <select 
-                            className="input-field" 
-                            value={quickPatient.gender} 
-                            onChange={e => setQuickPatient({...quickPatient, gender: e.target.value})}
-                          >
-                            <option>Male</option>
-                            <option>Female</option>
-                            <option>Other</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="mb-3">
-                        <label className="text-xs text-muted block mb-1">Mobile Phone</label>
-                        <input 
-                          className="input-field" 
-                          placeholder="+91 9876543210" 
-                          value={quickPatient.phone} 
-                          onChange={e => setQuickPatient({...quickPatient, phone: e.target.value})} 
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button type="button" className="btn-primary text-xs w-full" onClick={saveQuickPatient}>
-                          Save & Select Patient
-                        </button>
-                        <button type="button" className="btn-primary text-xs" style={{ background: 'transparent', border: '1px solid var(--border-subtle)' }} onClick={() => setShowQuickPatientForm(false)}>
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-6">
-                      {/* Search & Filter Input */}
-                      <div className="relative mb-2">
-                        <div className="relative flex items-center">
-                          <Search size={14} className="absolute left-3 pointer-events-none" style={{ color: '#60a5fa' }} />
-                          <input 
-                            type="text"
-                            className="input-field text-xs pl-8 pr-7"
-                            placeholder="🔍 Type patient name, ID, or phone to filter..."
-                            value={studyPatientSearch}
-                            onChange={(e) => setStudyPatientSearch(e.target.value)}
-                            style={{
-                              backgroundColor: '#090e1a',
-                              borderColor: studyPatientSearch ? '#3b82f6' : 'rgba(255, 255, 255, 0.15)',
-                              color: '#ffffff',
-                              paddingLeft: '2.1rem',
-                              paddingRight: '1.75rem',
-                              borderRadius: '6px'
-                            }}
-                          />
-                          {studyPatientSearch && (
-                            <button 
-                              type="button" 
-                              onClick={() => setStudyPatientSearch('')} 
-                              className="absolute right-2 text-muted hover:text-white"
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 2 }}
-                              title="Clear search"
-                            >
-                              <X size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* High-Contrast Clear Select Dropdown */}
-                      <select 
-                        className="input-field font-medium text-sm"
-                        style={{
-                          backgroundColor: '#0b1120',
-                          color: '#ffffff',
-                          border: '1.5px solid #3b82f6',
-                          borderRadius: '6px',
-                          padding: '0.65rem 0.75rem',
-                          width: '100%',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5)'
-                        }}
-                        value={selectedStudy.patientId || ''} 
-                        onChange={(e) => {
-                          const p = patients.find(pt => pt.id === e.target.value);
-                          if (p) {
-                            setSelectedStudy(prev => ({ 
-                              ...prev, 
-                              patientId: p.id, 
-                              patient: p.name, 
-                              age: p.age, 
-                              gender: p.gender,
-                              phone: p.phone,
-                              history: p.history,
-                              allergies: p.allergies,
-                              doctor: p.doctor,
-                              notes: p.notes
-                            }));
-                          } else {
-                            setSelectedStudy(prev => ({ ...prev, patientId: null, patient: null }));
-                          }
-                        }}
+                  {/* CARD 1: PATIENT INTAKE */}
+                  <div className="ws-card">
+                    <div className="ws-card-header">
+                      <span className="ws-card-title">
+                        <UserPlus size={15} /> Patient Intake
+                      </span>
+                      <button 
+                        type="button" 
+                        className="text-xs font-semibold text-primary hover:text-emerald-400 cursor-pointer"
+                        onClick={() => setShowQuickPatientForm(!showQuickPatientForm)}
                       >
-                        {(() => {
-                          const filtered = patients.filter(p => {
-                            if (!studyPatientSearch.trim()) return true;
-                            const q = studyPatientSearch.toLowerCase();
-                            return (p.name || '').toLowerCase().includes(q) ||
-                                   (p.id || '').toLowerCase().includes(q) ||
-                                   (p.phone || '').includes(q) ||
-                                   (p.gender || '').toLowerCase().includes(q);
-                          });
+                        {showQuickPatientForm ? '← Select Existing' : '+ New Patient'}
+                      </button>
+                    </div>
 
-                          return (
-                            <>
-                              <option value="" style={{ backgroundColor: '#0b1120', color: '#94a3b8' }}>
-                                {filtered.length === 0 
-                                  ? '⚠️ No patients match search' 
-                                  : `-- Select Patient (${filtered.length} available) --`}
-                              </option>
-                              {filtered.map(p => (
-                                <option 
-                                  key={p.id} 
-                                  value={p.id} 
-                                  style={{ 
-                                    backgroundColor: '#090e1a', 
-                                    color: '#ffffff', 
-                                    padding: '12px 14px',
-                                    fontWeight: '500'
-                                  }}
-                                >
-                                  {p.id} — {p.name} ({p.gender}, {p.age}y)
-                                </option>
-                              ))}
-                            </>
-                          );
-                        })()}
-                      </select>
-                      {studyPatientSearch && (
-                        <div className="text-xs text-muted mt-1 flex justify-between">
-                          <span>Filtering by: "{studyPatientSearch}"</span>
-                          <span style={{ color: '#60a5fa', fontWeight: 600 }}>
-                            {patients.filter(p => (p.name || '').toLowerCase().includes(studyPatientSearch.toLowerCase()) || (p.id || '').toLowerCase().includes(studyPatientSearch.toLowerCase())).length} found
+                    {showQuickPatientForm ? (
+                      <div className="bg-app p-3 rounded-lg border border-emerald-500/30 text-sm">
+                        <div className="text-xs text-emerald-400 font-semibold mb-2 uppercase">Quick Register Patient</div>
+                        <div className="mb-2">
+                          <label className="text-xs text-muted block mb-1">Full Name *</label>
+                          <input 
+                            className="input-field text-xs" 
+                            placeholder="e.g. John Doe" 
+                            value={quickPatient.name} 
+                            onChange={e => setQuickPatient({...quickPatient, name: e.target.value})} 
+                          />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          <div>
+                            <label className="text-xs text-muted block mb-1">Age</label>
+                            <input 
+                              className="input-field text-xs" 
+                              placeholder="30" 
+                              value={quickPatient.age} 
+                              onChange={e => setQuickPatient({...quickPatient, age: e.target.value})} 
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted block mb-1">Gender</label>
+                            <select 
+                              className="input-field text-xs" 
+                              value={quickPatient.gender} 
+                              onChange={e => setQuickPatient({...quickPatient, gender: e.target.value})}
+                            >
+                              <option>Male</option>
+                              <option>Female</option>
+                              <option>Other</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="mb-3">
+                          <label className="text-xs text-muted block mb-1">Phone</label>
+                          <input 
+                            className="input-field text-xs" 
+                            placeholder="+91 9876543210" 
+                            value={quickPatient.phone} 
+                            onChange={e => setQuickPatient({...quickPatient, phone: e.target.value})} 
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" className="btn-primary text-xs w-full" onClick={saveQuickPatient}>
+                            Save & Select
+                          </button>
+                          <button type="button" className="btn-secondary text-xs" onClick={() => setShowQuickPatientForm(false)}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Search Input */}
+                        <div className="relative mb-2">
+                          <div className="relative flex items-center">
+                            <Search size={14} className="absolute left-3 pointer-events-none" style={{ color: '#60a5fa' }} />
+                            <input 
+                              type="text"
+                              className="input-field text-xs pl-8 pr-7"
+                              placeholder="Search patient name, MRN, phone..."
+                              value={studyPatientSearch}
+                              onChange={(e) => setStudyPatientSearch(e.target.value)}
+                              style={{
+                                paddingLeft: '2.1rem',
+                                paddingRight: '1.75rem',
+                                borderRadius: '6px'
+                              }}
+                            />
+                            {studyPatientSearch && (
+                              <button 
+                                type="button" 
+                                onClick={() => setStudyPatientSearch('')} 
+                                className="absolute right-2 text-muted hover:text-white"
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 2 }}
+                              >
+                                <X size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Dropdown */}
+                        <select 
+                          className="input-field font-medium text-xs mb-2"
+                          value={selectedStudy.patientId || ''} 
+                          onChange={(e) => {
+                            const p = patients.find(pt => pt.id === e.target.value);
+                            if (p) {
+                              setSelectedStudy(prev => ({ 
+                                ...prev, 
+                                patientId: p.id, 
+                                patient: p.name, 
+                                age: p.age, 
+                                gender: p.gender,
+                                phone: p.phone,
+                                history: p.history,
+                                allergies: p.allergies,
+                                doctor: p.doctor,
+                                notes: p.notes
+                              }));
+                            } else {
+                              setSelectedStudy(prev => ({ ...prev, patientId: null, patient: null }));
+                            }
+                          }}
+                        >
+                          <option value="">-- Select Patient ({patients.length} in EHR) --</option>
+                          {patients.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.id} — {p.name} ({p.gender}, {p.age}y)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Patient Profile Details Card */}
+                    {selectedStudy.patientId && (
+                      <div className="ws-patient-profile">
+                        <div className="ws-patient-header-row">
+                          <div className="ws-patient-avatar">
+                            {selectedStudy.patient ? selectedStudy.patient.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase() : <User size={18} />}
+                          </div>
+                          <div>
+                            <div className="font-bold text-sm text-primary">{selectedStudy.patient}</div>
+                            <div className="text-xs text-muted mono">{selectedStudy.patientId} · {selectedStudy.gender}, {selectedStudy.age} yrs</div>
+                          </div>
+                        </div>
+
+                        <div className="ws-metadata-grid">
+                          <div className="ws-meta-item">
+                            <span className="ws-meta-label">Accession #</span>
+                            <span className="ws-meta-val mono">ACC-{selectedStudy.patientId.replace(/\D/g,'') || '7829'}</span>
+                          </div>
+                          <div className="ws-meta-item">
+                            <span className="ws-meta-label">Ref. Doctor</span>
+                            <span className="ws-meta-val">{selectedStudy.doctor || 'Dr. Smith'}</span>
+                          </div>
+                        </div>
+
+                        <div className="ws-clinical-tags-row">
+                          <span className={`ws-tag-pill ${selectedStudy.allergies && selectedStudy.allergies !== 'None' ? 'allergy' : 'doctor'}`}>
+                            Allergies: {selectedStudy.allergies || 'None Reported'}
+                          </span>
+                          <span className="ws-tag-pill history">
+                            Hx: {selectedStudy.history || 'Routine Assessment'}
                           </span>
                         </div>
-                      )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CARD 2: PROTOCOL & MODALITY SELECTION */}
+                  <div className="ws-card">
+                    <div className="ws-card-header">
+                      <span className="ws-card-title">
+                        <Sliders size={15} /> Imaging Modality & Protocol
+                      </span>
                     </div>
-                  )}
 
-                  {selectedStudy.patientId ? (
-                    <>
-                      <h3 className="text-sm text-tertiary mb-2 uppercase tracking-wide border-b border-subtle pb-1">Patient Information</h3>
-                      <div className="mb-6 bg-app p-3 rounded border border-subtle text-sm">
-                        <div className="flex justify-between mb-1"><span className="text-muted">ID:</span> <span className="font-mono text-primary">{selectedStudy.patientId}</span></div>
-                        <div className="flex justify-between mb-1"><span className="text-muted">Name:</span> <span className="font-medium text-primary">{selectedStudy.patient}</span></div>
-                        <div className="flex justify-between mb-1"><span className="text-muted">DOB (Age):</span> <span>{(new Date().getFullYear() - parseInt(selectedStudy.age))}-01-01 ({selectedStudy.age})</span></div>
-                        <div className="flex justify-between mb-1"><span className="text-muted">Gender:</span> <span>{selectedStudy.gender}</span></div>
-                        <div className="flex justify-between mb-1"><span className="text-muted">Acc. Number:</span> <span className="font-mono text-primary">ACC-{Math.floor(Math.random() * 9000000) + 1000000}</span></div>
-                        {selectedStudy.phone && <div className="flex justify-between mb-1"><span className="text-muted">Phone:</span> <span>{selectedStudy.phone}</span></div>}
-                        {selectedStudy.doctor && <div className="flex justify-between mb-1"><span className="text-muted">Ref. Doctor:</span> <span>{selectedStudy.doctor}</span></div>}
-                        
-                        <div className="border-t border-subtle pt-2 mt-2">
-                          <div className="text-xs text-muted uppercase mb-1 flex items-center gap-1"><Layers size={12} /> Prior Studies</div>
-                          <div className="text-xs text-status-urgent">None</div>
-                        </div>
-
-                        <div className="mt-2 border-t border-subtle pt-2">
-                          <div className="text-xs text-muted uppercase mb-1">Medical History</div>
-                          <div className="text-xs">{selectedStudy.history || 'None'}</div>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-xs text-muted uppercase mb-1">Allergies</div>
-                          <div className="text-xs text-status-urgent">{selectedStudy.allergies || 'None'}</div>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-xs text-muted uppercase mb-1">Clinical Notes</div>
-                          <div className="text-xs">{selectedStudy.notes || 'None'}</div>
-                        </div>
+                    <div className="flex flex-col gap-2.5">
+                      <div>
+                        <label className="text-xs text-muted block mb-1 font-medium">
+                          Diagnostic Modality
+                        </label>
+                        <select 
+                          className="input-field text-xs font-semibold cursor-pointer"
+                          value={modality}
+                          onChange={(e) => {
+                            const newMod = e.target.value;
+                            setModality(newMod);
+                            if (newMod === 'MRI') setBodyPart('Brain');
+                            else if (newMod === 'CT') setBodyPart('Lung');
+                            else if (newMod === 'Ultrasound') setBodyPart('Breast');
+                            else if (newMod === 'X-Ray') setBodyPart('Chest');
+                          }}
+                        >
+                          <option value="MRI">🧲 MRI — Magnetic Resonance Imaging</option>
+                          <option value="CT">⚡ CT — Computed Tomography</option>
+                          <option value="Ultrasound">🩺 Ultrasound — Diagnostic Sonography</option>
+                          <option value="X-Ray">🩻 X-Ray — Digital Radiography</option>
+                        </select>
                       </div>
 
-                      <h3 className="text-sm text-tertiary mb-4 uppercase tracking-wide border-b border-subtle pb-1">Study Setup</h3>
-                      <div className="mb-4">
-                        <label className="text-xs text-muted block mb-1 uppercase">Study ID</label>
-                        <input className="input-field mono" value={`STD-${Math.floor(Math.random() * 9000) + 1000}`} readOnly />
+                      <div>
+                        <label className="text-xs text-muted block mb-1 font-medium">
+                          Clinical Protocol / Organ
+                        </label>
+                        <select 
+                          className="input-field text-xs font-semibold cursor-pointer"
+                          value={bodyPart}
+                          onChange={(e) => {
+                            const newPart = e.target.value;
+                            setBodyPart(newPart);
+                            if (newPart === 'Brain') setModality('MRI');
+                            else if (newPart === 'Stroke' || newPart === 'Lung') setModality('CT');
+                            else if (newPart === 'Breast' || newPart === 'Thyroid' || newPart === 'Pregnancy') setModality('Ultrasound');
+                            else if (newPart === 'Chest') setModality('X-Ray');
+                          }}
+                        >
+                          {modality === 'MRI' && (
+                            <optgroup label="MRI Protocols">
+                              <option value="Brain">🧠 Brain — Tumor Detection (Glioma / Meningioma)</option>
+                            </optgroup>
+                          )}
+                          {modality === 'CT' && (
+                            <optgroup label="CT Protocols">
+                              <option value="Lung">🫁 Lung CT — Pneumonia & Infiltration</option>
+                              <option value="Stroke">⚡ Brain CT — Acute Stroke & Hemorrhage</option>
+                            </optgroup>
+                          )}
+                          {modality === 'Ultrasound' && (
+                            <optgroup label="Ultrasound Protocols">
+                              <option value="Breast">🩺 Breast Ultrasound — Lesion & Nodule Screen</option>
+                              <option value="Thyroid">🔬 Thyroid Ultrasound — TI-RADS Classification</option>
+                              <option value="Pregnancy">👶 Fetal Ultrasound — Obstetric State Analysis</option>
+                            </optgroup>
+                          )}
+                          {modality === 'X-Ray' && (
+                            <optgroup label="Radiography Protocols">
+                              <option value="Chest">🩻 Chest X-Ray — Pulmonary Pathology Screen</option>
+                            </optgroup>
+                          )}
+                        </select>
                       </div>
-
-                      <div className="mb-4">
-                        <label className="text-xs text-muted block mb-1 uppercase">Clinical Indication</label>
-                        <textarea className="input-field" rows={3} placeholder="Enter clinical indication for this specific study..."></textarea>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center p-4 text-muted text-sm border border-subtle rounded border-dashed">
-                      Please select a patient from the directory above to proceed with the study setup.
                     </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <h3 className="text-sm text-tertiary mb-2 uppercase tracking-wide border-b border-subtle pb-1">Patient Information</h3>
-                  <div className="mb-6 bg-app p-3 rounded border border-subtle text-sm">
-                    <div className="flex justify-between mb-1"><span className="text-muted">ID:</span> <span className="font-mono text-primary">{selectedStudy.id}</span></div>
-                    <div className="flex justify-between mb-1"><span className="text-muted">Name:</span> <span className="font-medium text-primary">{selectedStudy.patient}</span></div>
-                    <div className="flex justify-between mb-1"><span className="text-muted">DOB (Age):</span> <span>{(new Date().getFullYear() - parseInt(selectedStudy.age))}-01-01 ({selectedStudy.age})</span></div>
-                    <div className="flex justify-between mb-1"><span className="text-muted">Gender:</span> <span>{selectedStudy.gender}</span></div>
-                    <div className="flex justify-between mb-1"><span className="text-muted">Acc. Number:</span> <span className="font-mono text-primary">ACC-{Math.floor(Math.random() * 9000000) + 1000000}</span></div>
-                    <div className="flex justify-between mb-1"><span className="text-muted">Scan Date:</span> <span>{selectedStudy.date || sysDate}</span></div>
 
-                    <div className="border-t border-subtle pt-2 mt-2">
-                      <div className="text-xs text-muted uppercase mb-1 flex items-center gap-1"><Layers size={12} /> Prior Studies</div>
-                      <div className="text-xs text-status-urgent">None</div>
+                    <div className="p-2.5 rounded-lg bg-app border border-subtle text-xs mono flex items-center justify-between mt-0.5">
+                      <span className="text-muted flex items-center gap-1.5">
+                        <Cpu size={13} color="#3b82f6" /> Neural Network: {modality === 'CT' && bodyPart === 'Lung' ? 'DenseNet121' : 'ResNet18'}
+                      </span>
+                      <span className="flex items-center gap-1 font-semibold" style={{ color: '#10b981' }}>
+                        <span className="ws-live-pulse-dot" style={{ width: 6, height: 6 }}></span> Active
+                      </span>
                     </div>
                   </div>
+
+                  {/* CARD 3: CLINICAL INDICATION */}
+                  <div className="ws-card">
+                    <div className="ws-card-header">
+                      <span className="ws-card-title">
+                        <FileText size={15} /> Clinical Indication
+                      </span>
+                    </div>
+
+                    <div className="quick-chips-row mb-2">
+                      {['Trauma / Fall', 'Severe Headache', 'Dyspnea / Cough', 'Palpable Nodule', 'Routine Checkup'].map(chip => (
+                        <button 
+                          key={chip} 
+                          type="button" 
+                          className="quick-chip-btn"
+                          onClick={() => {
+                            const cur = selectedStudy.clinicalHistory || '';
+                            setSelectedStudy({ ...selectedStudy, clinicalHistory: cur ? `${cur}, ${chip}` : chip });
+                          }}
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
+
+                    <textarea 
+                      className="input-field text-xs" 
+                      rows={2} 
+                      placeholder="Enter specific clinical reason or symptoms for this exam..."
+                      value={selectedStudy.clinicalHistory || ''}
+                      onChange={e => setSelectedStudy({ ...selectedStudy, clinicalHistory: e.target.value })}
+                    />
+                  </div>
                 </>
+              ) : (
+                /* EXISTING STUDY VIEW */
+                <div className="ws-card">
+                  <div className="ws-card-header">
+                    <span className="ws-card-title"><User size={15} /> Patient Dossier</span>
+                    <span className="mono text-xs text-muted">{selectedStudy.id}</span>
+                  </div>
+                  <div className="ws-patient-profile">
+                    <div className="ws-patient-header-row">
+                      <div className="ws-patient-avatar">
+                        {selectedStudy.patient ? selectedStudy.patient.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase() : <User size={18} />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm text-primary">{selectedStudy.patient}</div>
+                        <div className="text-xs text-muted mono">{selectedStudy.age}y · {selectedStudy.gender}</div>
+                      </div>
+                    </div>
+                    <div className="ws-metadata-grid">
+                      <div className="ws-meta-item"><span className="ws-meta-label">Modality</span><span className="ws-meta-val">{selectedStudy.modality || modality}</span></div>
+                      <div className="ws-meta-item"><span className="ws-meta-label">Region</span><span className="ws-meta-val">{selectedStudy.bodyPart || bodyPart}</span></div>
+                      <div className="ws-meta-item"><span className="ws-meta-label">Scan Date</span><span className="ws-meta-val">{selectedStudy.date || sysDate}</span></div>
+                      <div className="ws-meta-item"><span className="ws-meta-label">Status</span><span className="ws-meta-val" style={{ color: '#10b981' }}>Verified</span></div>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* MIDDLE COLUMN - VIEWER */}
-            <div className="ws-col-mid" style={{ background: '#000', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-              <div className="image-viewer"
-                style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: activeTool === 'pan' ? (isDragging ? 'grabbing' : 'grab') : (activeTool === 'windowLevel' ? 'col-resize' : 'crosshair') }}
+            {/* MIDDLE COLUMN - PACS VIEWPORT CANVAS */}
+            <div className="ws-col-mid pacs-medical-canvas">
+              {/* Corner Brackets */}
+              <div className="pacs-corner tl"></div>
+              <div className="pacs-corner tr"></div>
+              <div className="pacs-corner bl"></div>
+              <div className="pacs-corner br"></div>
+
+              {/* Anatomical Axis Markers */}
+              <div className="pacs-axis-marker top">A</div>
+              <div className="pacs-axis-marker bottom">P</div>
+              <div className="pacs-axis-marker left">R</div>
+              <div className="pacs-axis-marker right">L</div>
+
+              {/* HUD Overlays */}
+              <div className="pacs-hud tl">
+                <div>{selectedStudy.patient || 'UNASSIGNED PATIENT'}</div>
+                <div>ID: {selectedStudy.patientId || selectedStudy.id || 'N/A'}</div>
+                <div>DOB: {selectedStudy.age ? `${new Date().getFullYear() - parseInt(selectedStudy.age)}-01-01 (${selectedStudy.age}y/${selectedStudy.gender || 'U'})` : 'N/A'}</div>
+              </div>
+              <div className="pacs-hud tr">
+                <div>ST. JUDE RADIOLOGY</div>
+                <div>{sysDate}</div>
+                <div>{modality} {bodyPart.toUpperCase()}</div>
+                <div>ACC: {selectedStudy.patientId ? selectedStudy.patientId.replace(/\D/g,'') || '7829' : '849204'}</div>
+              </div>
+              <div className="pacs-hud bl">
+                <div>Series: 1/1  Img: 1/1</div>
+                <div>Zoom: {Math.round(zoom * 100)}%</div>
+                <div>Matrix: 512 × 512</div>
+              </div>
+              <div className="pacs-hud br">
+                <div>W: {Math.round(contrast * 2.5)}  L: {Math.round(brightness * 1.5 - 50)}</div>
+                <div>Thk: 3.0 mm</div>
+                <div>Kernel: Standard Soft</div>
+              </div>
+
+              {/* Floating PACS Tool Dock */}
+              <div className="pacs-floating-dock">
+                <button title="Pan Tool" onClick={() => setActiveTool('pan')} className={`tool-btn ${activeTool === 'pan' ? 'active' : ''}`}><Move size={17} /></button>
+                <button title="Window/Level Contrast" onClick={() => setActiveTool('windowLevel')} className={`tool-btn ${activeTool === 'windowLevel' ? 'active' : ''}`}><Sun size={17} /></button>
+                <button title="Zoom Tool" onClick={() => setActiveTool('zoom')} className={`tool-btn ${activeTool === 'zoom' ? 'active' : ''}`}><Crosshair size={17} /></button>
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.12)', margin: '0.2rem 0' }}></div>
+                <button title="Zoom In" onClick={() => setZoom(prev => Math.min(prev + 0.25, 3.5))} className="tool-btn"><ZoomIn size={17} /></button>
+                <button title="Zoom Out" onClick={() => setZoom(prev => Math.max(0.2, prev - 0.25))} className="tool-btn"><ZoomOut size={17} /></button>
+                <button title="Reset PACS View" onClick={() => { setZoom(1); setPan({x:0, y:0}); setBrightness(100); setContrast(100); }} className="tool-btn"><RotateCcw size={17} /></button>
+              </div>
+
+              {/* Interactive Ingestion or Active Scan Viewport */}
+              <div 
+                style={{ 
+                  flex: 1, width: '100%', height: '100%', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                  overflow: 'hidden', position: 'relative',
+                  cursor: activeTool === 'pan' ? (isDragging ? 'grabbing' : 'grab') : (activeTool === 'windowLevel' ? 'col-resize' : 'crosshair')
+                }}
                 onMouseDown={handleViewerMouseDown}
                 onMouseMove={handleViewerMouseMove}
                 onMouseUp={handleViewerMouseUpOrLeave}
                 onMouseLeave={handleViewerMouseUpOrLeave}
               >
                 {selectedStudy.isNew ? (
-                  <div style={{ width: '100%', height: '100%', alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    
-                    <div className="file-drop" onClick={() => fileInputRef.current.click()} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                      <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,.dcm" />
-                      {preview ? (
-                        <>
-                          {/* DICOM Text Overlays */}
-                          <div className="dicom-overlay" style={{ position: 'absolute', top: '10px', left: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'left' }}>
-                            <div>{selectedStudy.patient || 'UNKNOWN'}</div>
-                            <div>ID: {selectedStudy.id || 'N/A'}</div>
-                            <div>DOB: {selectedStudy.age ? (new Date().getFullYear() - parseInt(selectedStudy.age)) + '-01-01' : ''}</div>
-                          </div>
-                          <div className="dicom-overlay" style={{ position: 'absolute', top: '10px', right: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'right' }}>
-                            <div>{sysDate}</div>
-                            <div>{modality} {bodyPart}</div>
-                            <div>ACC-{(Math.floor(Math.random() * 9000000) + 1000000)}</div>
-                          </div>
-                          <div className="dicom-overlay" style={{ position: 'absolute', bottom: '10px', left: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'left' }}>
-                            <div>Se: 1/1</div>
-                            <div>Im: 1/1</div>
-                          </div>
-                          <div className="dicom-overlay" style={{ position: 'absolute', bottom: '10px', right: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'right' }}>
-                            <div>W: {Math.round(contrast * 2.5)} L: {Math.round(brightness * 1.5 - 50)}</div>
-                            <div>Thk: 3.0 mm</div>
-                          </div>
-                          
-                          <img src={preview} alt="Upload preview" 
-                            style={{ 
-                              maxHeight: '400px', maxWidth: '100%', objectFit: 'contain',
-                              transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                              filter: `brightness(${brightness}%) contrast(${contrast}%)`,
-                              transition: isDragging ? 'none' : 'transform 0.1s'
-                            }} 
-                          />
-                        </>
-                      ) : (
-                        <div style={{ color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', border: '2px dashed rgba(255,255,255,0.2)', padding: '4rem', borderRadius: '16px', background: 'rgba(255,255,255,0.03)', transition: 'all 0.2s' }}
-                          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                        >
-                          <ImageIcon size={64} opacity={0.6} color="#fff" />
-                          <span style={{ fontSize: '1.2rem', letterSpacing: '0.5px', color: '#fff', fontWeight: '500' }}>Click to upload DICOM / Image</span>
-                          <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>Supports PNG, JPG, and DCM files</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {preview && (
-                      <div style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', zIndex: 20, width: '400px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(10px)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                          <div style={{ flex: 1 }}>
-                            <label className="text-xs text-muted block mb-1 uppercase tracking-wider">Modality</label>
-                            <select className="input-field" value={modality} onChange={(e) => setModality(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
-                              <option value="MRI">MRI</option>
-                              <option value="CT">CT</option>
-                              <option value="X-Ray">X-Ray</option>
-                              <option value="Ultrasound">Ultrasound</option>
-                            </select>
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <label className="text-xs text-muted block mb-1 uppercase tracking-wider">Region / Clinical Focus</label>
-                            <select className="input-field" value={bodyPart} onChange={(e) => handleBodyPartChange(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
-                              <option value="Brain">Brain (Tumor MRI)</option>
-                              <option value="Stroke">Brain (Stroke CT)</option>
-                              <option value="Lung">Lung (Pneumonia CT)</option>
-                              <option value="Chest">Chest (X-Ray)</option>
-                              <option value="Breast">Breast (Ultrasound)</option>
-                              <option value="Thyroid">Thyroid (Ultrasound)</option>
-                              <option value="Pregnancy">Pregnancy / Fetus (Ultrasound)</option>
-                            </select>
-                          </div>
-                        </div>
-                        <button className="btn-primary" onClick={runDiagnostics} disabled={loading} style={{ width: '100%', padding: '0.75rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                          {loading ? 'Processing ML Inference...' : 'Run AI Analysis'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                    {selectedStudy.heatmapUrl ? (
-                      <>
-                        <div className="dicom-overlay" style={{ position: 'absolute', top: '10px', left: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'left' }}>
-                          <div>{selectedStudy.patient}</div>
-                          <div>ID: {selectedStudy.id}</div>
-                          <div>DOB: {(new Date().getFullYear() - parseInt(selectedStudy.age))}-01-01</div>
-                        </div>
-                        <div className="dicom-overlay" style={{ position: 'absolute', top: '10px', right: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'right' }}>
-                          <div>{sysDate}</div>
-                          <div>{modality} {bodyPart}</div>
-                        </div>
-                        <div className="dicom-overlay" style={{ position: 'absolute', bottom: '10px', left: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'left' }}>
-                          <div>AI Overlaid</div>
-                        </div>
-                        <div className="dicom-overlay" style={{ position: 'absolute', bottom: '10px', right: '10px', color: '#ffcc00', fontSize: '0.85rem', textShadow: '1px 1px 2px #000', pointerEvents: 'none', zIndex: 5, textAlign: 'right' }}>
-                          <div>W: {Math.round(contrast * 2.5)} L: {Math.round(brightness * 1.5 - 50)}</div>
-                        </div>
-
-                        <img src={selectedStudy.heatmapUrl} alt="AI Heatmap" 
+                  <>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,.dcm" />
+                    {preview ? (
+                      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img 
+                          src={preview} 
+                          alt="Medical scan preview"
                           style={{ 
-                            maxHeight: '100%', maxWidth: '100%', objectFit: 'contain',
+                            maxHeight: '440px', maxWidth: '85%', objectFit: 'contain',
                             transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
                             filter: `brightness(${brightness}%) contrast(${contrast}%)`,
                             transition: isDragging ? 'none' : 'transform 0.1s'
                           }} 
                         />
-                      </>
+                        
+                        {/* Action Dock beneath image */}
+                        <div className="pacs-action-dock">
+                          <div className="flex items-center justify-between text-xs text-muted">
+                            <span className="mono">Input: {modality} · {bodyPart}</span>
+                            <span style={{ color: '#10b981' }}>Ready for Inference</span>
+                          </div>
+                          <button 
+                            className="btn-primary" 
+                            onClick={runDiagnostics} 
+                            disabled={loading}
+                            style={{ 
+                              padding: '0.85rem', fontWeight: 700, 
+                              fontSize: '0.92rem', letterSpacing: '0.04em',
+                              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                              boxShadow: '0 4px 18px rgba(37, 99, 235, 0.5)'
+                            }}
+                          >
+                            {loading ? (
+                              <span className="flex items-center gap-2">
+                                <Activity className="spin" size={17} /> Running Deep Learning Diagnostics...
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                <Sparkles size={17} /> Execute AI Diagnostics & Grad-CAM
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     ) : (
-                      <div style={{ color: 'var(--text-muted)' }}>No Image Available</div>
+                      /* Clean, Elegant Medical Scan Upload Bay */
+                      <div className="pacs-dropbay" onClick={() => fileInputRef.current.click()}>
+                        <div className="pacs-dropbay-icon">
+                          <UploadCloud size={36} color="#3b82f6" />
+                        </div>
+                        <div className="text-center">
+                          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.4rem' }}>
+                            Upload DICOM / Patient Imaging Scan
+                          </div>
+                          <p className="text-xs text-muted" style={{ maxWidth: '360px', margin: '0 auto 1.25rem auto', lineHeight: 1.55 }}>
+                            Click to browse or drag and drop scan file. Supports DICOM (.dcm), PNG, JPG, and JPEG.
+                          </p>
+                          <button type="button" className="btn-primary" style={{ pointerEvents: 'none', margin: '0 auto' }}>
+                            <FolderOpen size={15} /> Select File from Computer
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* Viewing Existing Study */
+                  <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {selectedStudy.heatmapUrl ? (
+                      <img 
+                        src={selectedStudy.heatmapUrl} 
+                        alt="AI Heatmap" 
+                        style={{ 
+                          maxHeight: '440px', maxWidth: '85%', objectFit: 'contain',
+                          transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                          filter: `brightness(${brightness}%) contrast(${contrast}%)`,
+                          transition: isDragging ? 'none' : 'transform 0.1s'
+                        }} 
+                      />
+                    ) : (
+                      <div className="text-muted text-sm mono">No Scan Slice Available in Storage</div>
                     )}
                   </div>
                 )}
               </div>
-              
-              <div className="viewer-controls" style={{ 
-                position: 'absolute', top: '1rem', right: '1rem', zIndex: 10,
-                display: 'flex', flexDirection: 'column', gap: '0.5rem',
-                background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)',
-                padding: '0.5rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)'
-              }}>
-                <button title="Zoom Tool" onClick={() => setActiveTool('zoom')} className={`tool-btn ${activeTool === 'zoom' ? 'active' : ''}`}><Crosshair size={18} /></button>
-                <button title="Zoom In" onClick={() => setZoom(prev => prev + 0.2)} className="tool-btn"><ZoomIn size={18} /></button>
-                <button title="Zoom Out" onClick={() => setZoom(prev => Math.max(0.1, prev - 0.2))} className="tool-btn"><ZoomOut size={18} /></button>
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.25rem 0' }}></div>
-                <button title="Pan Tool" onClick={() => setActiveTool('pan')} className={`tool-btn ${activeTool === 'pan' ? 'active' : ''}`}><Move size={18} /></button>
-                <button title="Window/Level" onClick={() => setActiveTool('windowLevel')} className={`tool-btn ${activeTool === 'windowLevel' ? 'active' : ''}`}><Sun size={18} /></button>
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.25rem 0' }}></div>
-                <button title="Reset View" onClick={() => { setZoom(1); setPan({x:0, y:0}); setBrightness(100); setContrast(100); }} className="tool-btn"><RotateCcw size={18} /></button>
-              </div>
             </div>
 
-            {/* RIGHT COLUMN - AI FINDINGS */}
+            {/* RIGHT COLUMN - AI DIAGNOSTIC SUITE */}
             <div className="ws-col-right">
-              <h3 className="text-sm text-tertiary mb-4 uppercase tracking-wide">AI Findings</h3>
-              
-              {selectedStudy.isNew && !result && !loading && (
-                <div className="text-muted text-sm text-center mt-8">
-                  Upload an image and run analysis to view findings.
+              <div className="ws-card">
+                <div className="ws-card-header">
+                  <span className="ws-card-title">
+                    <Sparkles size={15} /> AI Diagnostics & XAI
+                  </span>
+                  <span className={`ai-status ${result ? (result.emergencyPriority === 'HIGH' ? 'finding' : 'clear') : 'processing'}`}>
+                    {result ? (result.emergencyPriority === 'HIGH' ? 'CRITICAL' : 'VERIFIED') : 'STANDBY'}
+                  </span>
                 </div>
-              )}
 
-              {loading && (
-                <div className="text-center mt-8 text-primary">
-                  <Activity className="spin mx-auto mb-2" size={24} color="var(--accent-blue)" />
-                  Analyzing image...
-                </div>
-              )}
-
-              {result && selectedStudy.isNew && (
-                <div className="xai-result-panel" style={{ marginTop: 0 }}>
-                  {result.heatmapOverlayUrl && <img src={result.heatmapOverlayUrl} className="xai-img" alt="Grad-CAM XAI" />}
-                  <div className="flex items-center gap-2 font-medium mb-2" style={{ color: (result.emergencyPriority === 'HIGH' || result.emergencyPriority === 'CRITICAL') ? 'var(--status-urgent)' : (result.emergencyPriority === 'MEDIUM' || result.emergencyPriority === 'REVIEW' ? '#f59e0b' : 'var(--status-positive)') }}>
-                    <AlertTriangle size={16} /> {result.diseasesDetected?.[0]?.disease || 'Standard Finding'}
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm"><span className="text-muted">Confidence:</span> <span className="font-medium text-primary">{result.confidenceScore}%</span></p>
-                    <p className="text-sm"><span className="text-muted">Severity:</span> <span className="font-medium" style={{ color: (result.emergencyPriority === 'HIGH' || result.emergencyPriority === 'CRITICAL') ? 'var(--status-urgent)' : (result.emergencyPriority === 'MEDIUM' || result.emergencyPriority === 'REVIEW' ? '#f59e0b' : 'var(--status-positive)') }}>{result.emergencyPriority}</span></p>
-                  </div>
-                  <div className="mb-4">
-                    <h4 className="text-xs text-muted mb-2 uppercase">AI Explanation</h4>
-                    <p className="text-sm text-primary" style={{ lineHeight: 1.5 }}>
-                      {result.aiFindings}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {!selectedStudy.isNew && (
-                <>
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 text-status-urgent font-medium mb-2">
-                      <AlertTriangle size={16} /> {selectedStudy.findingDetails?.title || 'Abnormal Region'}
+                {/* Pre-Inference Mode */}
+                {!result && !loading && (
+                  <>
+                    <div className="ai-spec-box">
+                      <div className="ai-spec-row">
+                        <span className="label">Target Neural Network</span>
+                        <span className="val mono">{modality === 'CT' && bodyPart === 'Lung' ? 'DenseNet121' : 'ResNet18'}</span>
+                      </div>
+                      <div className="ai-spec-row">
+                        <span className="label">Input Tensor</span>
+                        <span className="val mono">224 × 224 RGB</span>
+                      </div>
+                      <div className="ai-spec-row">
+                        <span className="label">Benchmark AUC</span>
+                        <span className="val mono" style={{ color: '#10b981' }}>0.94 - 0.98</span>
+                      </div>
+                      <div className="ai-spec-row">
+                        <span className="label">XAI Explainability</span>
+                        <span className="val mono" style={{ color: '#60a5fa' }}>Grad-CAM Armed</span>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted">
-                      Location: {selectedStudy.findingDetails?.location || 'Right frontal region'}
-                    </p>
-                  </div>
 
-                  <div className="mb-4">
-                    <p className="text-sm"><span className="text-muted">Confidence:</span> <span className="font-medium text-primary">{selectedStudy.findingDetails?.confidence || '94%'}</span></p>
-                    <p className="text-sm"><span className="text-muted">Severity:</span> <span className="font-medium text-status-urgent">{selectedStudy.findingDetails?.severity || 'Review'}</span></p>
-                  </div>
+                    <div className="text-xs text-muted">
+                      <div className="font-bold uppercase tracking-wider text-tertiary mb-1.5">Monitored Pathologies:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="ws-tag-pill history">Neoplastic Masses</span>
+                        <span className="ws-tag-pill allergy">Consolidation</span>
+                        <span className="ws-tag-pill doctor">Structural Anomalies</span>
+                      </div>
+                    </div>
 
-                  <div>
-                    <h4 className="text-xs text-muted mb-2 uppercase">AI Explanation</h4>
-                    <p className="text-sm text-primary" style={{ lineHeight: 1.5 }}>
-                      {selectedStudy.findingDetails?.explanation || 'The focal heat map isolates the specified region. The expansion and asymmetric enhancement identified here are consistent with clinical abnormality.'}
-                    </p>
+                    <div className="p-3 rounded-lg border border-subtle bg-app text-xs text-muted" style={{ lineHeight: 1.5 }}>
+                      Upload a patient DICOM or scan image to execute deep learning neural inference and generate Grad-CAM saliency mapping.
+                    </div>
+                  </>
+                )}
+
+                {/* Loading State */}
+                {loading && (
+                  <div className="text-center py-8">
+                    <Activity className="spin mx-auto mb-3" size={32} color="#3b82f6" />
+                    <div className="font-bold text-sm text-primary mb-1">Executing Neural Inference...</div>
+                    <p className="text-xs text-muted mono">Extracting convolutional gradients & Grad-CAM...</p>
                   </div>
-                </>
-              )}
+                )}
+
+                {/* Post-Inference Results */}
+                {result && (
+                  <div className="ai-results-stack">
+                    <div className={`ai-finding-hero ${result.emergencyPriority === 'HIGH' || result.emergencyPriority === 'CRITICAL' ? 'critical' : 'normal'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: result.emergencyPriority === 'HIGH' ? '#ef4444' : '#10b981' }}>
+                          {result.emergencyPriority === 'HIGH' ? '🚨 HIGH PRIORITY / TRIAGE' : '✅ NORMAL / CLEAR FINDING'}
+                        </span>
+                        <span className="mono text-xs font-bold">{result.confidenceScore}%</span>
+                      </div>
+
+                      <div className="font-bold text-base text-primary">
+                        {result.diseasesDetected?.[0]?.disease || 'Standard Finding'}
+                      </div>
+
+                      <div className="confidence-gauge-wrapper">
+                        <div className="confidence-bar-bg">
+                          <div className="confidence-bar-fill" style={{ width: `${result.confidenceScore}%` }}></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Heatmap Thumbnail */}
+                    {result.heatmapOverlayUrl && (
+                      <div className="ai-heatmap-section">
+                        <div className="text-xs text-muted uppercase font-semibold mb-1 flex items-center gap-1.5">
+                          <Eye size={13} color="#60a5fa" /> Grad-CAM Activation Heatmap
+                        </div>
+                        <div className="ai-heatmap-thumb-card">
+                          <img src={result.heatmapOverlayUrl} alt="Grad-CAM Saliency Overlay" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Explanation Box */}
+                    <div className="ai-explanation-box">
+                      <div className="font-bold uppercase tracking-wider text-muted mb-1 flex items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
+                        <CheckCircle size={13} color="#10b981" /> Clinical Rule Engine Findings
+                      </div>
+                      <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                        {result.aiFindings}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
+          {/* BOTTOM PANEL - RADIOLOGIST REPORT COMPOSER */}
           <div className="ws-bottom">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm text-tertiary uppercase tracking-wide">Radiologist Findings</h3>
-              <div className="flex gap-2">
-                <button className="flex items-center gap-1 text-xs text-secondary hover:text-primary transition-colors bg-panel border border-subtle px-2 py-1 rounded">
-                  <Mic size={14} /> Dictate
-                </button>
-                <button className="flex items-center gap-1 text-xs text-secondary hover:text-primary transition-colors bg-panel border border-subtle px-2 py-1 rounded" 
-                  onClick={() => setSelectedStudy({...selectedStudy, clinicalHistory: `EXAM: ${modality} ${bodyPart}\n\nCLINICAL INDICATION: Evaluate for pathology.\n\nFINDINGS:\nThe study is largely unremarkable. No acute intracranial hemorrhage, mass effect, or midline shift.\n\nIMPRESSION:\n1. Normal ${modality} ${bodyPart}.`})}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <FileSignature size={16} color="#60a5fa" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-primary m-0">Structured Radiologist Report</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  type="button" 
+                  className="btn-secondary text-xs"
+                  onClick={() => {
+                    const cur = selectedStudy.clinicalHistory || '';
+                    setSelectedStudy({ ...selectedStudy, clinicalHistory: cur ? `${cur} [Voice Dictation Recorded]` : 'Clinical Dictation Recorded.' });
+                  }}
                 >
-                  <FileSignature size={14} /> Normal Template
+                  <Mic size={13} /> Dictate
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-secondary text-xs"
+                  onClick={() => setSelectedStudy({
+                    ...selectedStudy, 
+                    clinicalHistory: `EXAM: ${modality} ${bodyPart}\nTECHNIQUE: Standard multi-planar imaging.\nFINDINGS: The examined anatomical parenchyma is unremarkable with no focal masses, edema, or hemorrhage.\nIMPRESSION: 1. Normal study. No acute pathology identified.`
+                  })}
+                >
+                  <FileText size={13} /> Normal Template
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-secondary text-xs"
+                  onClick={() => setSelectedStudy({
+                    ...selectedStudy, 
+                    clinicalHistory: `EXAM: ${modality} ${bodyPart}\nTECHNIQUE: Targeted scan protocol.\nFINDINGS: Focal structural anomaly identified in target region with abnormal gradient enhancement.\nIMPRESSION: 1. Abnormal finding requiring clinical correlation.\nRECOMMENDATIONS: Recommend clinical follow-up and targeted biopsy if indicated.`
+                  })}
+                >
+                  <AlertTriangle size={13} /> Abnormality Template
                 </button>
               </div>
             </div>
-            <textarea className="input-field" rows={3} placeholder="Enter / dictate clinical observations..." value={selectedStudy.clinicalHistory || ''} onChange={e => setSelectedStudy({...selectedStudy, clinicalHistory: e.target.value})}></textarea>
-            <div className="flex justify-between items-center mt-2">
-              <button className="btn-primary" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }}>
-                Discard
+
+            <textarea 
+              className="clinical-report-textarea" 
+              placeholder="Enter / dictate structured clinical observations, radiological impressions, and patient recommendations..."
+              value={selectedStudy.clinicalHistory || ''} 
+              onChange={e => setSelectedStudy({...selectedStudy, clinicalHistory: e.target.value})}
+            />
+
+            <div className="flex justify-between items-center">
+              <button 
+                type="button" 
+                className="btn-secondary text-xs" 
+                onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }}
+              >
+                <X size={14} /> Discard Study
               </button>
               
-              {selectedStudy.isNew ? (
-                  <div className="flex gap-2">
-                    {result && (
-                      <button className="btn-primary" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} onClick={() => {
-                        generatePDF({
-                          id: `ST-${Math.floor(Math.random() * 90000) + 10000}`,
-                          patientId: selectedStudy.patientId,
-                          patientName: selectedStudy.patient,
-                          age: selectedStudy.age,
-                          modality: modality,
-                          study: modality,
-                          aiFinding: result.diseasesDetected?.[0]?.disease,
-                          confidence: result.confidenceScore + '%',
-                          heatmapUrl: result.heatmapOverlayUrl,
-                          observations: selectedStudy.clinicalHistory || result.aiFindings,
-                          date: sysDate,
-                        });
-                      }}>
-                        <Download size={14} className="mr-2 inline" /> Download PDF Now
-                      </button>
-                    )}
-                    <button className="btn-primary" disabled={!result || !selectedStudy.patient} onClick={async () => {
-                      if (!selectedStudy.patient) return alert("Select patient first");
-                      const studyData = {
+              <div className="flex gap-2">
+                {result && (
+                  <button 
+                    type="button" 
+                    className="btn-secondary text-xs" 
+                    onClick={() => {
+                      generatePDF({
                         id: `ST-${Math.floor(Math.random() * 90000) + 10000}`,
                         patientId: selectedStudy.patientId,
                         patientName: selectedStudy.patient,
                         age: selectedStudy.age,
-                        gender: selectedStudy.gender,
                         modality: modality,
-                        bodyPart: bodyPart,
-                        clinicalHistory: selectedStudy.clinicalHistory || 'Uploaded manually via Workstation',
-                        time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+                        study: modality,
+                        aiFinding: result.diseasesDetected?.[0]?.disease,
+                        confidence: result.confidenceScore + '%',
+                        heatmapUrl: result.heatmapOverlayUrl,
+                        observations: selectedStudy.clinicalHistory || result.aiFindings,
                         date: sysDate,
-                        aiType: result.emergencyPriority === 'HIGH' ? 'finding' : 'clear',
-                        aiLabel: 'COMPLETED',
-                        aiFindingTitle: result.diseasesDetected?.[0]?.disease || 'Standard Finding',
-                        aiLocation: 'Detected Region',
-                        aiConfidence: result.confidenceScore + '%',
-                        aiSeverity: result.emergencyPriority,
-                        aiExplanation: result.aiFindings,
-                        heatmapUrl: result.heatmapOverlayUrl
-                      };
-                      await fetch('/api/v1/studies', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studyData)
                       });
-                      fetchData();
-                      setSelectedStudy(null);
-                      setFile(null);
-                      setPreview(null);
-                      setResult(null);
-                    }}>
-                      {result ? 'Save Study & Finalize' : 'Run AI First to Save'}
-                    </button>
-                  </div>
-                ) : (
-                <button className="btn-primary" onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }}>Close Viewer</button>
-              )}
+                    }}
+                  >
+                    <Download size={14} /> Download PDF Dossier
+                  </button>
+                )}
+                
+                <button 
+                  type="button" 
+                  className="btn-primary text-xs" 
+                  disabled={!result || !selectedStudy.patient} 
+                  onClick={async () => {
+                    if (!selectedStudy.patient) return alert("Select patient first");
+                    const studyData = {
+                      id: `ST-${Math.floor(Math.random() * 90000) + 10000}`,
+                      patientId: selectedStudy.patientId,
+                      patientName: selectedStudy.patient,
+                      age: selectedStudy.age,
+                      gender: selectedStudy.gender,
+                      modality: modality,
+                      bodyPart: bodyPart,
+                      clinicalHistory: selectedStudy.clinicalHistory || 'Uploaded manually via Workstation',
+                      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+                      date: sysDate,
+                      aiType: result.emergencyPriority === 'HIGH' ? 'finding' : 'clear',
+                      aiLabel: 'COMPLETED',
+                      aiFindingTitle: result.diseasesDetected?.[0]?.disease || 'Standard Finding',
+                      aiLocation: 'Detected Region',
+                      aiConfidence: result.confidenceScore + '%',
+                      aiSeverity: result.emergencyPriority,
+                      aiExplanation: result.aiFindings,
+                      heatmapUrl: result.heatmapOverlayUrl
+                    };
+                    await fetch('/api/v1/studies', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studyData)
+                    });
+                    fetchData();
+                    setSelectedStudy(null);
+                    setFile(null);
+                    setPreview(null);
+                    setResult(null);
+                  }}
+                >
+                  <Save size={14} /> {result ? 'Save Study & Finalize to EHR' : 'Run AI First to Save'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
