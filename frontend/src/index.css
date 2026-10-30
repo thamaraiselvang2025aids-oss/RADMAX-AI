@@ -2954,3 +2954,464 @@ body.light-theme .pacs-roi-badge {
   color: #dc2626;
 }
 
+/* ======================================================== */
+/* MOBILE & TABLET RESPONSIVENESS (ZERO DESKTOP CHANGES)    */
+/* ======================================================== */
+
+/* Desktop defaults: mobile-only navigation elements are hidden */
+.mobile-menu-btn {
+  display: none;
+}
+.mobile-close-btn {
+  display: none;
+}
+.sidebar-backdrop {
+  display: none;
+}
+
+/* TABLET & MOBILE BREAKPOINT (<= 1024px) */
+@media (max-width: 1024px) {
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+  }
+  .app-layout {
+    height: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .main-wrapper {
+    height: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .dashboard-container {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .dashboard-main {
+    height: auto;
+    overflow: visible;
+    padding: 1.25rem;
+  }
+  .dashboard-right {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Workstation Tablet Layout */
+  .workstation-layout {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .ws-topbar {
+    height: auto;
+    min-height: 60px;
+    padding: 0.75rem 1.25rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .ws-main {
+    height: auto;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+  }
+  .ws-grid {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  /* Central Medical Viewport Canvas ordered first */
+  .ws-col-mid {
+    order: 1;
+    width: 100%;
+    min-height: 420px;
+    height: 55vh;
+    max-height: 600px;
+    box-shadow: none;
+  }
+  /* AI Diagnostics ordered second */
+  .ws-col-right {
+    order: 2;
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+    height: auto;
+    overflow: visible;
+    padding: 1.25rem;
+  }
+  /* Patient Intake & Protocol ordered third */
+  .ws-col-left {
+    order: 3;
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    border-right: none;
+    border-top: 1px solid var(--border-subtle);
+    height: auto;
+    overflow: visible;
+    padding: 1.25rem;
+  }
+  /* Radiologist Report Composer ordered fourth */
+  .ws-bottom {
+    order: 4;
+    height: auto;
+    min-height: 200px;
+    padding: 1.25rem;
+  }
+  .ws-bottom .flex.justify-between {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .ws-bottom .flex.gap-2 {
+    flex-wrap: wrap;
+  }
+  .clinical-report-textarea {
+    min-height: 110px;
+  }
+  .pacs-split-view-container {
+    flex-direction: column;
+    height: 94%;
+    gap: 0.75rem;
+  }
+  .pacs-split-pane {
+    width: 100%;
+    min-height: 180px;
+  }
+
+  /* Data Tables with Smooth Native Horizontal Swipe */
+  .data-table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .report-ai-body {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+/* SMARTPHONE & NARROW TABLET BREAKPOINT (<= 768px) */
+@media (max-width: 768px) {
+  /* Mobile Sidebar Off-Canvas Drawer */
+  .mobile-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .mobile-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent-blue);
+  }
+  body.light-theme .mobile-menu-btn {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+
+  .mobile-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mobile-close-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.16);
+  }
+  body.light-theme .mobile-close-btn {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 95;
+    animation: fadeIn 0.2s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -290px;
+    width: 280px;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.6);
+    transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .sidebar.mobile-open {
+    left: 0;
+  }
+
+  /* Responsive Top Header */
+  .top-header {
+    padding: 0 0.85rem;
+    gap: 0.5rem;
+    height: auto;
+    min-height: 56px;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  .search-bar {
+    max-width: 100%;
+    width: auto;
+    flex: 1;
+    min-width: 110px;
+    padding: 0.35rem 0.6rem;
+  }
+  .header-actions {
+    gap: 0.5rem;
+  }
+  .header-actions .font-medium {
+    display: none;
+  }
+  .theme-toggle-btn span {
+    display: none;
+  }
+  .theme-toggle-btn {
+    padding: 0.45rem 0.6rem;
+  }
+
+  /* Metric Cards Grid */
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.65rem;
+    margin-bottom: 1.25rem;
+  }
+  .metric-card {
+    min-width: 0;
+    padding: 0.9rem 0.65rem;
+  }
+  .metric-value {
+    font-size: 1.4rem;
+  }
+  .metric-label {
+    font-size: 0.72rem;
+  }
+
+  /* Queue Header & Filters */
+  .queue-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .filters {
+    overflow-x: auto;
+    white-space: nowrap;
+    width: 100%;
+    padding-bottom: 0.35rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter-pill {
+    flex-shrink: 0;
+  }
+
+  /* Workstation Touch Canvas & Controls */
+  .ws-col-mid {
+    min-height: 340px;
+    height: 48vh;
+  }
+  .pacs-action-dock {
+    width: 94%;
+    max-width: 94%;
+    bottom: 0.65rem;
+    padding: 0.65rem 0.85rem;
+    gap: 0.5rem;
+  }
+  .pacs-view-mode-bar {
+    width: 94%;
+    top: 0.65rem;
+    padding: 0.2rem 0.35rem;
+    gap: 0.25rem;
+  }
+  .pacs-mode-pill {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.68rem;
+  }
+  .pacs-floating-dock {
+    top: 0.65rem;
+    right: 0.65rem;
+    padding: 0.3rem;
+    gap: 0.25rem;
+  }
+  .pacs-hud {
+    font-size: 0.65rem;
+    line-height: 1.35;
+  }
+  .pacs-hud.tl {
+    top: 6px;
+    left: 8px;
+  }
+  .pacs-hud.tr {
+    top: 6px;
+    right: 8px;
+  }
+  .pacs-hud.bl {
+    bottom: 6px;
+    left: 8px;
+  }
+  .pacs-hud.br {
+    bottom: 6px;
+    right: 8px;
+  }
+  .pacs-dropbay {
+    width: 94%;
+    padding: 1.75rem 1rem;
+    gap: 0.85rem;
+  }
+  .pacs-dropbay-icon {
+    width: 52px;
+    height: 52px;
+  }
+  .pacs-reanalyze-bar {
+    bottom: 0.65rem;
+    right: 0.65rem;
+    gap: 0.35rem;
+  }
+  .pacs-reanalyze-bar button {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.7rem;
+  }
+
+  /* Form & Dossier Cards */
+  .patient-reg-grid-2,
+  .patient-reg-grid-3,
+  .patient-reg-grid-4 {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+  .dossier-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+  .dossier-callout-row {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+  .patient-reg-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .patient-reg-footer {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  .patient-reg-footer button {
+    width: 100%;
+    justify-content: center;
+  }
+  .report-header-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .settings-tabs-nav {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  .theme-picker-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .doctor-profile-banner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  /* Login Form */
+  .login-wrapper {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+  .login-left {
+    padding: 2.5rem 1.5rem 1.5rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    align-items: center;
+    text-align: center;
+  }
+  .login-right {
+    padding: 2rem 1.25rem 3rem;
+  }
+}
+
+/* COMPACT PHONES BREAKPOINT (<= 480px) */
+@media (max-width: 480px) {
+  .metrics-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .ws-subject-pill {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .ws-brand-group {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .medvision-copilot-modal {
+    width: calc(100vw - 1.5rem) !important;
+    right: 0.75rem !important;
+    bottom: 0.75rem !important;
+    max-height: 75vh;
+  }
+  .modal-content {
+    width: 95vw;
+    max-width: 95vw;
+    margin: 0.5rem;
+  }
+}
+
+

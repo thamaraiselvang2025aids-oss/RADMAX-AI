@@ -6,7 +6,7 @@ import {
   ZoomIn, ZoomOut, Move, Sun, Moon, RotateCcw, Crosshair, Image as ImageIcon,
   Mic, FileSignature, Layers, Clock, Cpu, Palette, Database, Sliders, ShieldCheck, Check, Sparkles,
   UserPlus, Phone, Mail, MapPin, Stethoscope, ArrowLeft, CheckCircle2, ShieldAlert, Calendar, Save, Hash,
-  UploadCloud, FolderOpen, Eye, Target
+  UploadCloud, FolderOpen, Eye, Target, Menu
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import './index.css';
@@ -108,6 +108,7 @@ function Dashboard() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [sysDate, setSysDate] = useState(getSystemDate());
   const [selectedStudy, setSelectedStudy] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // White / Dark Theme State
   const [isWhiteTheme, setIsWhiteTheme] = useState(() => {
@@ -1757,19 +1758,35 @@ function Dashboard() {
           <span>✓</span> {toastMessage}
         </div>
       )}
+      {mobileMenuOpen && (
+        <div 
+          className="sidebar-backdrop" 
+          onClick={() => setMobileMenuOpen(false)} 
+        />
+      )}
       <div className="app-layout">
         {/* SIDEBAR */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <Activity size={20} /> MEDVISION AI
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Activity size={20} /> MEDVISION AI
+          </div>
+          <button 
+            type="button" 
+            className="mobile-close-btn" 
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation"
+          >
+            <X size={18} />
+          </button>
         </div>
         <div className="sidebar-nav">
           <div className="nav-section">
             <div className="nav-title">WORKSPACE</div>
-            <button className={`nav-item ${activeSidebar === 'My Worklist' && activeFilter !== 'Priority' ? 'active' : ''}`} onClick={() => { setActiveSidebar('My Worklist'); setActiveFilter('All'); }}>
+            <button className={`nav-item ${activeSidebar === 'My Worklist' && activeFilter !== 'Priority' ? 'active' : ''}`} onClick={() => { setActiveSidebar('My Worklist'); setActiveFilter('All'); setMobileMenuOpen(false); }}>
               <CheckCircle size={16} /> My Worklist
             </button>
-            <button className={`nav-item ${activeSidebar === 'Priority' || (activeSidebar === 'My Worklist' && activeFilter === 'Priority') ? 'active' : ''}`} onClick={() => { setActiveSidebar('My Worklist'); setActiveFilter('Priority'); }}>
+            <button className={`nav-item ${activeSidebar === 'Priority' || (activeSidebar === 'My Worklist' && activeFilter === 'Priority') ? 'active' : ''}`} onClick={() => { setActiveSidebar('My Worklist'); setActiveFilter('Priority'); setMobileMenuOpen(false); }}>
               <AlertTriangle size={16} /> Priority
             </button>
             <button className="nav-item" onClick={() => {
@@ -1777,25 +1794,26 @@ function Dashboard() {
               setPreview(null);
               setResult(null);
               setSelectedStudy({ isNew: true, id: 'New Study', study: 'Pending Upload', aiType: 'processing', aiLabel: 'PENDING' });
+              setMobileMenuOpen(false);
             }}>
               <Plus size={16} /> Add Study
             </button>
           </div>
           <div className="nav-section">
             <div className="nav-title">PATIENTS</div>
-            <button className={`nav-item ${activeSidebar === 'Patient Directory' ? 'active' : ''}`} onClick={() => setActiveSidebar('Patient Directory')}>
+            <button className={`nav-item ${activeSidebar === 'Patient Directory' ? 'active' : ''}`} onClick={() => { setActiveSidebar('Patient Directory'); setMobileMenuOpen(false); }}>
               <Users size={16} /> Patient Directory
             </button>
-            <button className={`nav-item ${activeSidebar === 'Patient History' ? 'active' : ''}`} onClick={() => setActiveSidebar('Patient History')}>
+            <button className={`nav-item ${activeSidebar === 'Patient History' ? 'active' : ''}`} onClick={() => { setActiveSidebar('Patient History'); setMobileMenuOpen(false); }}>
               <Clock size={16} /> Patient History
             </button>
           </div>
           <div className="nav-section">
             <div className="nav-title">SYSTEM</div>
-            <button className={`nav-item ${activeSidebar === 'XAI Reports' ? 'active' : ''}`} onClick={() => setActiveSidebar('XAI Reports')}>
+            <button className={`nav-item ${activeSidebar === 'XAI Reports' ? 'active' : ''}`} onClick={() => { setActiveSidebar('XAI Reports'); setMobileMenuOpen(false); }}>
               <FileText size={16} /> XAI Reports
             </button>
-            <button className={`nav-item ${activeSidebar === 'Settings' ? 'active' : ''}`} onClick={() => setActiveSidebar('Settings')}>
+            <button className={`nav-item ${activeSidebar === 'Settings' ? 'active' : ''}`} onClick={() => { setActiveSidebar('Settings'); setMobileMenuOpen(false); }}>
               <Settings size={16} /> Settings
             </button>
           </div>
@@ -1805,9 +1823,19 @@ function Dashboard() {
       {/* MAIN CONTENT AREA */}
       <div className="main-wrapper">
         <header className="top-header">
-          <div className="search-bar">
-            <Search size={16} color="var(--text-tertiary)" />
-            <input type="text" placeholder="Search patient, MRN, accession or study..." />
+          <div className="flex items-center gap-2">
+            <button 
+              type="button" 
+              className="mobile-menu-btn" 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle navigation menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="search-bar">
+              <Search size={16} color="var(--text-tertiary)" />
+              <input type="text" placeholder="Search patient, MRN, accession or study..." />
+            </div>
           </div>
           <div className="header-actions">
             <button 
