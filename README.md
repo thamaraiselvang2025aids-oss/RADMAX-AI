@@ -2,6 +2,7 @@
 ### Enterprise AI Medical Imaging, Multi-Modality Diagnostics & Radiology Intelligence Platform
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thamaraiselvang2025aids-oss/RADMAX-AI/blob/main/RADMAX_AI_Colab.ipynb)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fthamaraiselvang2025aids-oss%2FRADMAX-AI)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C.svg)](https://pytorch.org/)
@@ -281,6 +282,19 @@ docker-compose up --build
 *Train or fine-tune models on free Cloud GPUs (T4 / V100).*
 
 Click the badge at the top of the README or open [`RADMAX_AI_Colab.ipynb`](file:///c:/Users/Thamarai%20selvan/OneDrive/Desktop/ct_mri/RADMAX_AI_Colab.ipynb) directly in Google Colab.
+
+---
+
+### Option 7: ⚡ Deploy to Vercel (Cloud Edge & Serverless)
+*Deploy the full MedVision PACS Studio frontend and Serverless API directly to Vercel in 1 click:*
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fthamaraiselvang2025aids-oss%2FRADMAX-AI)
+
+Or deploy via the Vercel CLI:
+```bash
+npx vercel
+```
+*See [`VERCEL_DEPLOYMENT_GUIDE.md`](VERCEL_DEPLOYMENT_GUIDE.md) for detailed configuration, environment variables, and remote GPU backend pairing.*
 
 ---
 

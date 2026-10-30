@@ -1,0 +1,35 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/v1/patients/:path*",
+      "destination": "/api/patients?id=:path*"
+    },
+    {
+      "source": "/api/v1/patients",
+      "destination": "/api/patients"
+    },
+    {
+      "source": "/api/v1/studies/:path*",
+      "destination": "/api/studies?id=:path*"
+    },
+    {
+      "source": "/api/v1/studies",
+      "destination": "/api/studies"
+    },
+    {
+      "source": "/api/v1/inference",
+      "destination": "/api/inference"
+    },
+    {
+      "source": "/api/v1/tabular-inference",
+      "destination": "/api/tabular-inference"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

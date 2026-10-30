@@ -2,6 +2,7 @@ node_modules/
 frontend/node_modules/
 build/
 /dist/
+*.db
 /medvision_clinical.db
 coverage/
 .DS_Store
