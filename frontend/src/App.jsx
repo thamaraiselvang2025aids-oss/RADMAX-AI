@@ -3,8 +3,9 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-route
 import { 
   Activity, Search, Bell, Plus, ChevronRight, X, User,
   CheckCircle, AlertTriangle, Users, FileText, Settings, Download,
-  ZoomIn, ZoomOut, Move, Sun, RotateCcw, Crosshair, Image as ImageIcon,
-  Mic, FileSignature, Layers, Clock
+  ZoomIn, ZoomOut, Move, Sun, Moon, RotateCcw, Crosshair, Image as ImageIcon,
+  Mic, FileSignature, Layers, Clock, Cpu, Palette, Database, Sliders, ShieldCheck, Check, Sparkles,
+  UserPlus, Phone, Mail, MapPin, Stethoscope, ArrowLeft, CheckCircle2, ShieldAlert, Calendar, Save, Hash
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import './index.css';
@@ -107,12 +108,48 @@ function Dashboard() {
   const [sysDate, setSysDate] = useState(getSystemDate());
   const [selectedStudy, setSelectedStudy] = useState(null);
 
+  // White / Dark Theme State
+  const [isWhiteTheme, setIsWhiteTheme] = useState(() => {
+    return localStorage.getItem('medvision_theme') === 'light';
+  });
+
+  useEffect(() => {
+    if (isWhiteTheme) {
+      document.body.classList.add('light-theme');
+      localStorage.setItem('medvision_theme', 'light');
+    } else {
+      document.body.classList.remove('light-theme');
+      localStorage.setItem('medvision_theme', 'dark');
+    }
+  }, [isWhiteTheme]);
+
   const [patients, setPatients] = useState([]);
   const [editingPatient, setEditingPatient] = useState(null);
   const [patientSearch, setPatientSearch] = useState('');
+  const [studyPatientSearch, setStudyPatientSearch] = useState('');
   const [showQuickPatientForm, setShowQuickPatientForm] = useState(false);
   const [quickPatient, setQuickPatient] = useState({ name: '', age: '30', gender: 'Male', phone: '', doctor: 'Dr. Smith' });
   const [toastMessage, setToastMessage] = useState('');
+
+  // Settings State
+  const [settingsActiveTab, setSettingsActiveTab] = useState('profile');
+  const [profileForm, setProfileForm] = useState({
+    name: 'Dr. Smith, M.D.',
+    license: 'RAD-1042-MD',
+    email: 'dr.smith@medvision.ai',
+    institution: 'Central General Hospital',
+    department: 'Radiology & Nuclear Medicine',
+    specialty: 'Diagnostic Neuroradiology',
+    phone: '+1 (555) 234-5678'
+  });
+  const [aiConfig, setAiConfig] = useState({
+    autoInference: true,
+    criticalAlerts: true,
+    gradcamHeatmaps: true,
+    tabularAssistance: true,
+    confidenceThreshold: 85
+  });
+  const [profileToast, setProfileToast] = useState('');
 
   const saveQuickPatient = async () => {
     if (!quickPatient.name.trim()) {
@@ -179,6 +216,7 @@ function Dashboard() {
   // Workstation XAI State
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [result, setResult] = useState(null);
   const [modality, setModality] = useState('MRI');
   const [bodyPart, setBodyPart] = useState('Brain');
   const [loading, setLoading] = useState(false);
@@ -522,7 +560,7 @@ function Dashboard() {
     return (
       <div className="workstation-layout">
         <div className="ws-topbar">
-          <button className="btn-primary" onClick={() => setSelectedStudy(null)} style={{ background: 'transparent', border: '1px solid var(--border-subtle)' }}>
+          <button className="btn-primary" onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }} style={{ background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
             ← Cancel
           </button>
           <div className="flex items-center gap-4 text-sm font-medium">
@@ -530,9 +568,20 @@ function Dashboard() {
             <span className="text-muted">|</span>
             <span>{modality || selectedStudy.study}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted text-sm">AI Analysis:</span>
-            <span className={`ai-status ${selectedStudy.aiType}`}>{selectedStudy.aiLabel}</span>
+          <div className="flex items-center gap-3">
+            <button 
+              type="button"
+              className="theme-toggle-btn"
+              onClick={() => setIsWhiteTheme(!isWhiteTheme)}
+              title={isWhiteTheme ? "Switch to Dark Theme" : "Switch to White Theme"}
+            >
+              {isWhiteTheme ? <Moon size={14} /> : <Sun size={14} color="#fde047" />}
+              <span>{isWhiteTheme ? "Dark Mode" : "Light Mode"}</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-muted text-sm">AI Analysis:</span>
+              <span className={`ai-status ${selectedStudy.aiType}`}>{selectedStudy.aiLabel}</span>
+            </div>
           </div>
         </div>
 
@@ -608,30 +657,116 @@ function Dashboard() {
                     </div>
                   ) : (
                     <div className="mb-6">
-                      <select className="input-field" value={selectedStudy.patientId || ''} onChange={(e) => {
-                        const p = patients.find(pt => pt.id === e.target.value);
-                        if (p) {
-                          setSelectedStudy(prev => ({ 
-                            ...prev, 
-                            patientId: p.id, 
-                            patient: p.name, 
-                            age: p.age, 
-                            gender: p.gender,
-                            phone: p.phone,
-                            history: p.history,
-                            allergies: p.allergies,
-                            doctor: p.doctor,
-                            notes: p.notes
-                          }));
-                        } else {
-                          setSelectedStudy(prev => ({ ...prev, patientId: null, patient: null }));
-                        }
-                      }}>
-                        <option value="">-- Search & Select Patient ({patients.length} Registered) --</option>
-                        {patients.map(p => (
-                          <option key={p.id} value={p.id}>{p.id} - {p.name} ({p.gender}, {p.age}y)</option>
-                        ))}
+                      {/* Search & Filter Input */}
+                      <div className="relative mb-2">
+                        <div className="relative flex items-center">
+                          <Search size={14} className="absolute left-3 pointer-events-none" style={{ color: '#60a5fa' }} />
+                          <input 
+                            type="text"
+                            className="input-field text-xs pl-8 pr-7"
+                            placeholder="🔍 Type patient name, ID, or phone to filter..."
+                            value={studyPatientSearch}
+                            onChange={(e) => setStudyPatientSearch(e.target.value)}
+                            style={{
+                              backgroundColor: '#090e1a',
+                              borderColor: studyPatientSearch ? '#3b82f6' : 'rgba(255, 255, 255, 0.15)',
+                              color: '#ffffff',
+                              paddingLeft: '2.1rem',
+                              paddingRight: '1.75rem',
+                              borderRadius: '6px'
+                            }}
+                          />
+                          {studyPatientSearch && (
+                            <button 
+                              type="button" 
+                              onClick={() => setStudyPatientSearch('')} 
+                              className="absolute right-2 text-muted hover:text-white"
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 2 }}
+                              title="Clear search"
+                            >
+                              <X size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* High-Contrast Clear Select Dropdown */}
+                      <select 
+                        className="input-field font-medium text-sm"
+                        style={{
+                          backgroundColor: '#0b1120',
+                          color: '#ffffff',
+                          border: '1.5px solid #3b82f6',
+                          borderRadius: '6px',
+                          padding: '0.65rem 0.75rem',
+                          width: '100%',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5)'
+                        }}
+                        value={selectedStudy.patientId || ''} 
+                        onChange={(e) => {
+                          const p = patients.find(pt => pt.id === e.target.value);
+                          if (p) {
+                            setSelectedStudy(prev => ({ 
+                              ...prev, 
+                              patientId: p.id, 
+                              patient: p.name, 
+                              age: p.age, 
+                              gender: p.gender,
+                              phone: p.phone,
+                              history: p.history,
+                              allergies: p.allergies,
+                              doctor: p.doctor,
+                              notes: p.notes
+                            }));
+                          } else {
+                            setSelectedStudy(prev => ({ ...prev, patientId: null, patient: null }));
+                          }
+                        }}
+                      >
+                        {(() => {
+                          const filtered = patients.filter(p => {
+                            if (!studyPatientSearch.trim()) return true;
+                            const q = studyPatientSearch.toLowerCase();
+                            return (p.name || '').toLowerCase().includes(q) ||
+                                   (p.id || '').toLowerCase().includes(q) ||
+                                   (p.phone || '').includes(q) ||
+                                   (p.gender || '').toLowerCase().includes(q);
+                          });
+
+                          return (
+                            <>
+                              <option value="" style={{ backgroundColor: '#0b1120', color: '#94a3b8' }}>
+                                {filtered.length === 0 
+                                  ? '⚠️ No patients match search' 
+                                  : `-- Select Patient (${filtered.length} available) --`}
+                              </option>
+                              {filtered.map(p => (
+                                <option 
+                                  key={p.id} 
+                                  value={p.id} 
+                                  style={{ 
+                                    backgroundColor: '#090e1a', 
+                                    color: '#ffffff', 
+                                    padding: '12px 14px',
+                                    fontWeight: '500'
+                                  }}
+                                >
+                                  {p.id} — {p.name} ({p.gender}, {p.age}y)
+                                </option>
+                              ))}
+                            </>
+                          );
+                        })()}
                       </select>
+                      {studyPatientSearch && (
+                        <div className="text-xs text-muted mt-1 flex justify-between">
+                          <span>Filtering by: "{studyPatientSearch}"</span>
+                          <span style={{ color: '#60a5fa', fontWeight: 600 }}>
+                            {patients.filter(p => (p.name || '').toLowerCase().includes(studyPatientSearch.toLowerCase()) || (p.id || '').toLowerCase().includes(studyPatientSearch.toLowerCase())).length} found
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -923,7 +1058,7 @@ function Dashboard() {
             </div>
             <textarea className="input-field" rows={3} placeholder="Enter / dictate clinical observations..." value={selectedStudy.clinicalHistory || ''} onChange={e => setSelectedStudy({...selectedStudy, clinicalHistory: e.target.value})}></textarea>
             <div className="flex justify-between items-center mt-2">
-              <button className="btn-primary" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} onClick={() => setSelectedStudy(null)}>
+              <button className="btn-primary" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }}>
                 Discard
               </button>
               
@@ -975,12 +1110,15 @@ function Dashboard() {
                       });
                       fetchData();
                       setSelectedStudy(null);
+                      setFile(null);
+                      setPreview(null);
+                      setResult(null);
                     }}>
                       {result ? 'Save Study & Finalize' : 'Run AI First to Save'}
                     </button>
                   </div>
                 ) : (
-                <button className="btn-primary" onClick={() => setSelectedStudy(null)}>Close Viewer</button>
+                <button className="btn-primary" onClick={() => { setSelectedStudy(null); setFile(null); setPreview(null); setResult(null); }}>Close Viewer</button>
               )}
             </div>
           </div>
@@ -1010,6 +1148,14 @@ function Dashboard() {
             </button>
             <button className={`nav-item ${activeSidebar === 'Priority' || (activeSidebar === 'My Worklist' && activeFilter === 'Priority') ? 'active' : ''}`} onClick={() => { setActiveSidebar('My Worklist'); setActiveFilter('Priority'); }}>
               <AlertTriangle size={16} /> Priority
+            </button>
+            <button className="nav-item" onClick={() => {
+              setFile(null);
+              setPreview(null);
+              setResult(null);
+              setSelectedStudy({ isNew: true, id: 'New Study', study: 'Pending Upload', aiType: 'processing', aiLabel: 'PENDING' });
+            }}>
+              <Plus size={16} /> Add Study
             </button>
           </div>
           <div className="nav-section">
@@ -1041,12 +1187,26 @@ function Dashboard() {
             <input type="text" placeholder="Search patient, MRN, accession or study..." />
           </div>
           <div className="header-actions">
+            <button 
+              type="button"
+              className="theme-toggle-btn"
+              onClick={() => setIsWhiteTheme(!isWhiteTheme)}
+              title={isWhiteTheme ? "Switch to Dark Theme" : "Switch to White Theme"}
+            >
+              {isWhiteTheme ? <Moon size={15} /> : <Sun size={15} color="#fde047" />}
+              <span>{isWhiteTheme ? "Dark Mode" : "Light Mode"}</span>
+            </button>
             <Bell size={18} color="var(--text-secondary)" style={{ cursor: 'pointer' }} />
             <div className="flex items-center gap-2">
               <User size={18} color="var(--text-secondary)" />
               <span className="font-medium">Dr. Smith</span>
             </div>
-            <button className="btn-primary" onClick={() => setSelectedStudy({ isNew: true, id: 'New Study', study: 'Pending Upload', aiType: 'processing', aiLabel: 'PENDING' })}>
+            <button className="btn-primary" onClick={() => {
+              setFile(null);
+              setPreview(null);
+              setResult(null);
+              setSelectedStudy({ isNew: true, id: 'New Study', study: 'Pending Upload', aiType: 'processing', aiLabel: 'PENDING' });
+            }}>
               <Plus size={16} /> Add Study
             </button>
           </div>
@@ -1181,6 +1341,9 @@ function Dashboard() {
                           <td>
                             <div className="flex gap-2">
                               <button className="action-link" style={{ color: '#38bdf8' }} onClick={() => {
+                                setFile(null);
+                                setPreview(null);
+                                setResult(null);
                                 setSelectedStudy({
                                   isNew: true,
                                   id: 'New Study',
@@ -1235,59 +1398,158 @@ function Dashboard() {
                 </div>
 
                 {editingPatient ? (
-                  <div className="bg-panel p-6 border border-subtle rounded">
-                    <h3 className="text-sm text-tertiary mb-4 uppercase tracking-wide">Patient Registration</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                      <div><label className="text-xs text-muted block mb-1">Patient ID</label><input className="input-field mono" value={editingPatient.id} onChange={e => setEditingPatient({...editingPatient, id: e.target.value})} /></div>
-                      <div><label className="text-xs text-muted block mb-1">Full Name</label><input className="input-field" value={editingPatient.name} onChange={e => setEditingPatient({...editingPatient, name: e.target.value})} /></div>
-                      <div><label className="text-xs text-muted block mb-1">Date of Birth</label><input type="date" className="input-field" value={editingPatient.dob} onChange={e => {
-                        const dob = e.target.value;
-                        let age = editingPatient.age;
-                        if (dob) {
-                            const today = new Date();
-                            const birthDate = new Date(dob);
-                            let calculatedAge = today.getFullYear() - birthDate.getFullYear();
-                            const m = today.getMonth() - birthDate.getMonth();
-                            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-                                calculatedAge--;
-                            }
-                            age = calculatedAge.toString();
-                        }
-                        setEditingPatient({...editingPatient, dob, age});
-                      }} /></div>
-                      <div><label className="text-xs text-muted block mb-1">Age</label><input className="input-field" value={editingPatient.age} onChange={e => setEditingPatient({...editingPatient, age: e.target.value})} /></div>
-                      <div><label className="text-xs text-muted block mb-1">Gender</label><select className="input-field" value={editingPatient.gender} onChange={e => setEditingPatient({...editingPatient, gender: e.target.value})}><option>Male</option><option>Female</option><option>Other</option></select></div>
-                      <div><label className="text-xs text-muted block mb-1">Phone</label><input className="input-field" value={editingPatient.phone} onChange={e => setEditingPatient({...editingPatient, phone: e.target.value})} /></div>
-                      <div><label className="text-xs text-muted block mb-1">Email</label><input className="input-field" value={editingPatient.email} onChange={e => setEditingPatient({...editingPatient, email: e.target.value})} /></div>
-                      <div><label className="text-xs text-muted block mb-1">Referring Doctor</label><input className="input-field" value={editingPatient.doctor} onChange={e => setEditingPatient({...editingPatient, doctor: e.target.value})} /></div>
-                    </div>
-                    <div className="mb-4"><label className="text-xs text-muted block mb-1">Address</label><input className="input-field" value={editingPatient.address} onChange={e => setEditingPatient({...editingPatient, address: e.target.value})} /></div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                      <div><label className="text-xs text-muted block mb-1">Medical History</label><textarea className="input-field" rows={2} value={editingPatient.history} onChange={e => setEditingPatient({...editingPatient, history: e.target.value})}></textarea></div>
-                      <div><label className="text-xs text-muted block mb-1">Allergies</label><textarea className="input-field" rows={2} value={editingPatient.allergies} onChange={e => setEditingPatient({...editingPatient, allergies: e.target.value})}></textarea></div>
-                    </div>
-                    <div className="mb-6"><label className="text-xs text-muted block mb-1">Clinical Notes</label><textarea className="input-field" rows={2} value={editingPatient.notes} onChange={e => setEditingPatient({...editingPatient, notes: e.target.value})}></textarea></div>
-                    <div className="flex gap-4">
-                      <button className="btn-primary" onClick={async () => {
-                        if (editingPatient.phone && !/^\+\d{1,4}\s?\d{7,14}$/.test(editingPatient.phone.replace(/[-() ]/g, ''))) {
-                          alert("Please enter a valid mobile number with country code (e.g., +1 555-1234)");
-                          return;
-                        }
-                        if (editingPatient.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editingPatient.email)) {
-                          alert("Please enter a valid email address");
-                          return;
-                        }
-                        await fetch('/api/v1/patients', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPatient)
-                        });
-                        const savedName = editingPatient.name;
-                        const savedId = editingPatient.id;
-                        fetchData();
-                        setEditingPatient(null);
-                        setToastMessage(`Patient ${savedName} (${savedId}) saved successfully!`);
-                        setTimeout(() => setToastMessage(''), 4000);
-                      }}>Save Patient</button>
-                      <button className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--border-subtle)' }} onClick={() => setEditingPatient(null)}>Cancel</button>
+                  <div className="patient-reg-container">
+                    <div className="patient-reg-card">
+                      {/* HEADER */}
+                      <div className="patient-reg-header">
+                        <div className="patient-reg-header-left">
+                          <div className="patient-avatar-badge">
+                            {editingPatient.name ? editingPatient.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase() : <UserPlus size={24} />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                                {editingPatient.name ? `Patient EHR: ${editingPatient.name}` : 'New Patient Registration'}
+                              </h2>
+                              <span className="mono text-xs px-2.5 py-0.5 rounded font-bold" style={{ background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                                {editingPatient.id}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted" style={{ margin: '4px 0 0 0' }}>
+                              Electronic Health Record (EHR) demographics, clinical contact, and intake baseline.
+                            </p>
+                          </div>
+                        </div>
+                        <button className="btn-ghost" onClick={() => setEditingPatient(null)}>
+                          <X size={16} /> Discard
+                        </button>
+                      </div>
+
+                      {/* SECTION 1: DEMOGRAPHICS */}
+                      <div className="patient-reg-section">
+                        <div className="patient-reg-section-title">
+                          <User size={16} /> Patient Demographics & Identification
+                        </div>
+                        <div className="patient-reg-grid-3">
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Patient ID / MRN</label>
+                            <input className="input-field mono" value={editingPatient.id} onChange={e => setEditingPatient({...editingPatient, id: e.target.value})} placeholder="PT-XXXXX" />
+                          </div>
+                          <div className="patient-reg-field" style={{ gridColumn: 'span 2' }}>
+                            <label className="patient-reg-label">Full Legal Name</label>
+                            <input className="input-field" value={editingPatient.name} onChange={e => setEditingPatient({...editingPatient, name: e.target.value})} placeholder="First Last (e.g. John Doe)" />
+                          </div>
+                        </div>
+
+                        <div className="patient-reg-grid-3" style={{ marginTop: '1.25rem' }}>
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Date of Birth</label>
+                            <input type="date" className="input-field" value={editingPatient.dob} onChange={e => {
+                              const dob = e.target.value;
+                              let age = editingPatient.age;
+                              if (dob) {
+                                  const today = new Date();
+                                  const birthDate = new Date(dob);
+                                  let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+                                  const m = today.getMonth() - birthDate.getMonth();
+                                  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                                      calculatedAge--;
+                                  }
+                                  age = calculatedAge.toString();
+                              }
+                              setEditingPatient({...editingPatient, dob, age});
+                            }} />
+                          </div>
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Age (Years)</label>
+                            <input className="input-field" value={editingPatient.age} onChange={e => setEditingPatient({...editingPatient, age: e.target.value})} placeholder="Calculated or enter age" />
+                          </div>
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Biological Sex / Gender</label>
+                            <select className="input-field" value={editingPatient.gender} onChange={e => setEditingPatient({...editingPatient, gender: e.target.value})}>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SECTION 2: CONTACT & REFERRAL */}
+                      <div className="patient-reg-section">
+                        <div className="patient-reg-section-title">
+                          <Phone size={16} /> Contact & Clinical Provider Information
+                        </div>
+                        <div className="patient-reg-grid-3">
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Primary Phone</label>
+                            <input className="input-field" placeholder="+1 (555) 000-0000" value={editingPatient.phone} onChange={e => setEditingPatient({...editingPatient, phone: e.target.value})} />
+                          </div>
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Email Address</label>
+                            <input className="input-field" placeholder="patient@healthcare.org" value={editingPatient.email} onChange={e => setEditingPatient({...editingPatient, email: e.target.value})} />
+                          </div>
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Referring Physician</label>
+                            <input className="input-field" placeholder="Dr. Referring Specialist" value={editingPatient.doctor} onChange={e => setEditingPatient({...editingPatient, doctor: e.target.value})} />
+                          </div>
+                        </div>
+
+                        <div className="patient-reg-field" style={{ marginTop: '1.25rem' }}>
+                          <label className="patient-reg-label">Residential Address & Clinical Facility</label>
+                          <input className="input-field" placeholder="Street Address, City, Postal Code" value={editingPatient.address} onChange={e => setEditingPatient({...editingPatient, address: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {/* SECTION 3: CLINICAL BACKGROUND */}
+                      <div className="patient-reg-section" style={{ borderBottom: 'none' }}>
+                        <div className="patient-reg-section-title">
+                          <FileText size={16} /> Medical History, Allergies & Clinical Notes
+                        </div>
+                        <div className="patient-reg-grid-2">
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Medical History & Prior Diagnoses</label>
+                            <textarea className="input-field" rows={3} placeholder="Previous surgical procedures, chronic illness, implants..." value={editingPatient.history} onChange={e => setEditingPatient({...editingPatient, history: e.target.value})}></textarea>
+                          </div>
+                          <div className="patient-reg-field">
+                            <label className="patient-reg-label">Known Allergies & Contraindications</label>
+                            <textarea className="input-field" rows={3} placeholder="Contrast media, Iodine, Penicillin, Latex, None reported..." value={editingPatient.allergies} onChange={e => setEditingPatient({...editingPatient, allergies: e.target.value})}></textarea>
+                          </div>
+                        </div>
+
+                        <div className="patient-reg-field" style={{ marginTop: '1.25rem' }}>
+                          <label className="patient-reg-label">Clinical Intake Notes & Diagnostic Indications</label>
+                          <textarea className="input-field" rows={3} placeholder="Special instructions, scanning protocols, mobility notes..." value={editingPatient.notes} onChange={e => setEditingPatient({...editingPatient, notes: e.target.value})}></textarea>
+                        </div>
+                      </div>
+
+                      {/* FOOTER ACTIONS */}
+                      <div className="patient-reg-footer">
+                        <button className="btn-secondary" onClick={() => setEditingPatient(null)}>
+                          <X size={16} /> Cancel
+                        </button>
+                        <button className="btn-primary" onClick={async () => {
+                          if (editingPatient.phone && !/^\+\d{1,4}\s?\d{7,14}$/.test(editingPatient.phone.replace(/[-() ]/g, ''))) {
+                            alert("Please enter a valid mobile number with country code (e.g., +1 555-1234)");
+                            return;
+                          }
+                          if (editingPatient.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editingPatient.email)) {
+                            alert("Please enter a valid email address");
+                            return;
+                          }
+                          await fetch('/api/v1/patients', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPatient)
+                          });
+                          const savedName = editingPatient.name;
+                          const savedId = editingPatient.id;
+                          fetchData();
+                          setEditingPatient(null);
+                          setToastMessage(`Patient ${savedName} (${savedId}) saved successfully!`);
+                          setTimeout(() => setToastMessage(''), 4000);
+                        }}>
+                          <Check size={16} /> Save Patient Record
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1406,13 +1668,25 @@ function Dashboard() {
             {activeSidebar === 'XAI Reports' && (
               <>
                 {selectedReport ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', width: '100%', height: '100%', overflowY: 'auto', padding: '1.5rem', boxSizing: 'border-box', background: 'var(--bg-app)' }}>
+                  <div className="report-detail-wrapper" style={{ overflowY: 'auto', padding: '1rem', boxSizing: 'border-box' }}>
                     
                     {/* TOP: Full-width header */}
-                    <div className="bg-panel border border-subtle rounded p-4 shadow-sm w-full" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <button className="btn-primary" onClick={() => setSelectedReport(null)} style={{ background: 'transparent', border: '1px solid var(--border-subtle)', padding: '0.25rem 0.75rem', borderRadius: '6px' }}>← Back to Reports</button>
-                        <h2 className="text-lg font-semibold tracking-wide">RADIOLOGY REPORT <span className="text-muted ml-2 font-mono text-sm">{selectedReport.id}</span></h2>
+                    <div className="report-header-banner">
+                      <div className="flex items-center gap-4">
+                        <button className="btn-secondary" onClick={() => setSelectedReport(null)}>
+                          <ArrowLeft size={16} /> Back to Reports
+                        </button>
+                        <div className="flex items-center gap-3">
+                          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                            RADIOLOGY REPORT
+                          </h2>
+                          <span className="mono text-xs px-2.5 py-1 rounded font-bold" style={{ background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                            {selectedReport.id}
+                          </span>
+                          <span className="text-xs px-2.5 py-1 rounded font-bold" style={{ background: selectedReport.status === 'Draft' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: selectedReport.status === 'Draft' ? '#f59e0b' : '#10b981', border: `1px solid ${selectedReport.status === 'Draft' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)'}` }}>
+                            {selectedReport.status || 'FINALIZED'}
+                          </span>
+                        </div>
                       </div>
                       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                         <button className="btn-primary" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} onClick={async () => {
@@ -1477,22 +1751,22 @@ function Dashboard() {
                       </div>
                     </div>
 
-                    {/* ROW 1: Full-width Patient & Study Summary card */}
-                    <div className="bg-panel rounded border border-subtle p-6 shadow-sm w-full">
-                      <h3 className="text-sm text-accent-blue mb-4 uppercase tracking-wider font-bold border-b border-subtle pb-2 flex items-center gap-2"><User size={16}/> Patient & Study Summary</h3>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
-                        {selectedReport.isNew ? (
-                          <>
-                            <div style={{ gridColumn: 'span 2' }}>
-                              <div className="text-xs text-muted uppercase mb-1">Select Patient & Study</div>
+                    {/* SECTION 1: Patient & Study Clinical Dossier */}
+                    <div className="report-dossier-card">
+                      {selectedReport.isNew ? (
+                        <div>
+                          <div className="patient-reg-section-title">
+                            <User size={16} /> Select Patient for Report
+                          </div>
+                          <div className="patient-reg-grid-3">
+                            <div className="patient-reg-field" style={{ gridColumn: 'span 2' }}>
+                              <label className="patient-reg-label">Select Patient & Linked Study</label>
                               <select 
                                 className="input-field" 
-                                style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', width: '100%', padding: '0.5rem' }}
                                 value={selectedReport.patientId}
                                 onChange={(e) => {
                                   const pId = e.target.value;
                                   const p = patients.find(pt => pt.id === pId);
-                                  // Find a matching study for this patient to pull AI data
                                   const st = studies.find(s => s.patientId === pId) || {};
                                   setSelectedReport(prev => ({
                                     ...prev, 
@@ -1513,147 +1787,228 @@ function Dashboard() {
                                 {patients.map(p => <option key={p.id} value={p.id}>{p.id} - {p.name}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Gender</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.gender || ''} onChange={e => setSelectedReport({...selectedReport, gender: e.target.value})} />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Age / DOB</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.age || ''} onChange={e => setSelectedReport({...selectedReport, age: e.target.value})} />
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Patient ID</div>
-                              <input className="input-field w-full mono" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.patientId || ''} onChange={e => setSelectedReport({...selectedReport, patientId: e.target.value})} />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Full Name</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.patientName || ''} onChange={e => setSelectedReport({...selectedReport, patientName: e.target.value})} />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Gender</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.gender || patients.find(p => p.id === selectedReport.patientId)?.gender || ''} onChange={e => setSelectedReport({...selectedReport, gender: e.target.value})} />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Age / DOB</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.age || patients.find(p => p.id === selectedReport.patientId)?.age || ''} onChange={e => setSelectedReport({...selectedReport, age: e.target.value})} />
-                            </div>
-                          </>
-                        )}
-                        
-                        <div>
-                          <div className="text-xs text-muted uppercase mb-1">Modality</div>
-                          <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.study || ''} onChange={e => setSelectedReport({...selectedReport, study: e.target.value})} />
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted uppercase mb-1">Body Part</div>
-                          <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.bodyPart || 'Head / Chest'} onChange={e => setSelectedReport({...selectedReport, bodyPart: e.target.value})} />
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted uppercase mb-1">Study Date</div>
-                          <input type="date" className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.date || ''} onChange={e => setSelectedReport({...selectedReport, date: e.target.value})} />
-                        </div>
-                        <div><div className="text-xs text-muted uppercase mb-1">AI Status</div><div className="text-sm mt-1"><span className={`ai-status ${selectedReport.status === 'Draft' ? 'processing' : 'finding'}`}>{selectedReport.status}</span></div></div>
-                      </div>
-                      
-                      {/* Additional Patient Details for Radiologists */}
-                      {!selectedReport.isNew && (
-                        <>
-                          <div className="mt-4 pt-4 border-t border-subtle" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1.5rem', width: '100%' }}>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Phone</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={patients.find(p => p.id === selectedReport.patientId)?.phone || 'N/A'} readOnly />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Email</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={patients.find(p => p.id === selectedReport.patientId)?.email || 'N/A'} readOnly />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Referring Doctor</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={patients.find(p => p.id === selectedReport.patientId)?.doctor || 'N/A'} readOnly />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Address</div>
-                              <input className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={patients.find(p => p.id === selectedReport.patientId)?.address || 'N/A'} readOnly />
+                            <div className="patient-reg-field">
+                              <label className="patient-reg-label">Study Date</label>
+                              <input type="date" className="input-field" value={selectedReport.date || ''} onChange={e => setSelectedReport({...selectedReport, date: e.target.value})} />
                             </div>
                           </div>
-                          
-                          <div className="mt-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', width: '100%' }}>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Medical History</div>
-                              <textarea className="input-field w-full text-sm" rows={2} style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.5rem', resize: 'vertical' }} value={patients.find(p => p.id === selectedReport.patientId)?.history || 'N/A'} readOnly />
+                        </div>
+                      ) : (
+                        <div>
+                          {/* Hero row with Avatar and Core Identifiers */}
+                          <div className="dossier-hero-row">
+                            <div className="dossier-patient-main">
+                              <div className="dossier-avatar">
+                                {selectedReport.patientName ? selectedReport.patientName.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase() : 'PT'}
+                              </div>
+                              <div>
+                                <h3 style={{ fontSize: '1.35rem', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
+                                  {selectedReport.patientName || 'Anonymous Patient'}
+                                </h3>
+                                <div className="flex items-center gap-3 text-xs text-muted">
+                                  <span className="mono font-semibold text-accent-blue">{selectedReport.patientId}</span>
+                                  <span>·</span>
+                                  <span>{selectedReport.gender || patients.find(p => p.id === selectedReport.patientId)?.gender || 'Male'}</span>
+                                  <span>·</span>
+                                  <span>{selectedReport.age || patients.find(p => p.id === selectedReport.patientId)?.age || 'N/A'} yrs</span>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Allergies</div>
-                              <textarea className="input-field w-full text-sm" rows={2} style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.5rem', resize: 'vertical' }} value={patients.find(p => p.id === selectedReport.patientId)?.allergies || 'N/A'} readOnly />
-                            </div>
-                            <div>
-                              <div className="text-xs text-muted uppercase mb-1">Clinical Notes</div>
-                              <textarea className="input-field w-full text-sm" rows={2} style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.5rem', resize: 'vertical' }} value={patients.find(p => p.id === selectedReport.patientId)?.notes || 'N/A'} readOnly />
+
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs px-3 py-1 rounded-full font-bold" style={{ background: 'rgba(59, 130, 246, 0.12)', color: 'var(--accent-blue)', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                                {selectedReport.study || 'MRI'} · {selectedReport.bodyPart || 'Brain'}
+                              </span>
+                              <span className="text-xs px-3 py-1 rounded-full font-medium flex items-center gap-1.5" style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                                <Calendar size={13} /> {selectedReport.date || 'Current Session'}
+                              </span>
                             </div>
                           </div>
-                        </>
+
+                          {/* 4-Column Clinical Metadata Grid */}
+                          <div className="dossier-grid">
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Patient ID / MRN</div>
+                              <div className="dossier-cell-value mono">{selectedReport.patientId || 'N/A'}</div>
+                            </div>
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Telephone Contact</div>
+                              <div className="dossier-cell-value">{patients.find(p => p.id === selectedReport.patientId)?.phone || 'N/A'}</div>
+                            </div>
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Official Email</div>
+                              <div className="dossier-cell-value">{patients.find(p => p.id === selectedReport.patientId)?.email || 'N/A'}</div>
+                            </div>
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Referring Physician</div>
+                              <div className="dossier-cell-value">Dr. {patients.find(p => p.id === selectedReport.patientId)?.doctor || 'Specialist'}</div>
+                            </div>
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Clinical Facility / Address</div>
+                              <div className="dossier-cell-value">{patients.find(p => p.id === selectedReport.patientId)?.address || 'Radiology Suite'}</div>
+                            </div>
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Imaging Modality</div>
+                              <div className="dossier-cell-value">{selectedReport.study || 'MRI (Magnetic Resonance)'}</div>
+                            </div>
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Target Anatomy</div>
+                              <div className="dossier-cell-value">{selectedReport.bodyPart || 'Brain / Neuro'}</div>
+                            </div>
+                            <div className="dossier-cell">
+                              <div className="dossier-cell-label">Study Date</div>
+                              <div className="dossier-cell-value">{selectedReport.date || 'Standard protocol'}</div>
+                            </div>
+                          </div>
+
+                          {/* 3-Column Clinical Callouts */}
+                          <div className="dossier-callout-row">
+                            <div className="dossier-callout-box">
+                              <div className="dossier-cell-label flex items-center gap-1.5"><FileText size={12}/> Medical History</div>
+                              <div className="text-sm font-medium mt-1" style={{ color: 'var(--text-primary)' }}>
+                                {patients.find(p => p.id === selectedReport.patientId)?.history || 'None reported (NIL)'}
+                              </div>
+                            </div>
+                            <div className="dossier-callout-box">
+                              <div className="dossier-cell-label flex items-center gap-1.5"><ShieldAlert size={12}/> Allergies & Contraindications</div>
+                              <div className="text-sm font-medium mt-1" style={{ color: 'var(--text-primary)' }}>
+                                {patients.find(p => p.id === selectedReport.patientId)?.allergies || 'None reported (NIL)'}
+                              </div>
+                            </div>
+                            <div className="dossier-callout-box">
+                              <div className="dossier-cell-label flex items-center gap-1.5"><Activity size={12}/> Clinical Notes</div>
+                              <div className="text-sm font-medium mt-1" style={{ color: 'var(--text-primary)' }}>
+                                {patients.find(p => p.id === selectedReport.patientId)?.notes || 'Routine clinical assessment.'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
 
                     {/* ROW 2: Full-width AI Diagnostics & Findings card */}
-                    <div className="bg-panel rounded border border-subtle p-6 shadow-sm w-full relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-status-urgent"></div>
-                      <h3 className="text-sm text-accent-blue mb-4 uppercase tracking-wider font-bold border-b border-subtle pb-2 flex items-center gap-2"><Activity size={16}/> AI Diagnostics & Findings</h3>
-                      
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          <div>
-                            <div className="text-xs text-muted uppercase mb-1">Detected Abnormality</div>
-                            <input className="input-field w-full text-status-urgent font-medium" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.aiFinding || ''} onChange={e => setSelectedReport({...selectedReport, aiFinding: e.target.value})} />
+                    {/* SECTION 2: AI Diagnostics & Grad-CAM Findings Card */}
+                    <div className="report-ai-card">
+                      <div className="patient-reg-section-title">
+                        <Activity size={16} /> Deep Learning AI Diagnostics & Grad-CAM Heatmap
+                      </div>
+
+                      <div className="report-ai-body">
+                        <div>
+                          {/* Finding and Confidence Hero Badges */}
+                          <div className="ai-finding-hero">
+                            <div className="ai-abnormality-badge">
+                              <Activity size={18} />
+                              <span>{selectedReport.aiFinding || 'Detected Abnormality'}</span>
+                            </div>
+                            <div className="ai-confidence-pill">
+                              <CheckCircle2 size={16} />
+                              <span>{selectedReport.confidence || '99%'} Confidence</span>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-xs text-muted uppercase mb-1">Confidence Score</div>
-                            <input className="input-field w-full text-primary font-bold" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.25rem' }} value={selectedReport.confidence || ''} onChange={e => setSelectedReport({...selectedReport, confidence: e.target.value})} />
+
+                          {/* AI Narrative Quote Box */}
+                          <div className="ai-narrative-box">
+                            <div className="flex items-center gap-2 font-bold mb-2 text-xs uppercase tracking-wide" style={{ color: 'var(--accent-blue)' }}>
+                              <Sparkles size={14} /> AI Diagnostic Inference Summary
+                            </div>
+                            <p style={{ margin: 0 }}>
+                              {selectedReport.observations || 'The deep learning neural network has evaluated raw tissue intensity gradients and isolated pathological neural activations.'}
+                            </p>
                           </div>
-                          <div>
-                            <div className="text-xs text-muted uppercase mb-1">AI Explanation</div>
-                            <textarea className="input-field w-full text-sm text-secondary" rows={4} style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '0.5rem', resize: 'vertical' }} value={selectedReport.observations || ''} onChange={e => setSelectedReport({...selectedReport, observations: e.target.value})} />
+
+                          <div className="mt-3">
+                            <label className="patient-reg-label block mb-1">Observation Annotations</label>
+                            <textarea 
+                              className="clinical-textarea" 
+                              rows={3} 
+                              value={selectedReport.observations || ''} 
+                              onChange={e => setSelectedReport({...selectedReport, observations: e.target.value})}
+                              placeholder="Clinical remarks or observation notes..."
+                            />
                           </div>
                         </div>
-                        
-                        <div className="w-full h-48 bg-app border border-subtle rounded flex flex-col items-center justify-center text-muted text-xs p-2 text-center">
+
+                        {/* Framed Heatmap Container */}
+                        <div className="heatmap-viewer-card">
+                          <span className="heatmap-tag">GRAD-CAM ACTIVATION MAP</span>
                           {selectedReport.heatmapUrl ? (
-                            <img src={selectedReport.heatmapUrl} alt="AI Heatmap" className="h-full w-full object-contain rounded" />
+                            <img src={selectedReport.heatmapUrl} alt="AI Grad-CAM Saliency Map" />
                           ) : (
-                            <span>[ AI Image / Heatmap ]</span>
+                            <div className="flex flex-col items-center justify-center text-muted text-xs h-full p-4 text-center">
+                              <ImageIcon size={32} className="mb-2 opacity-50" />
+                              <span>[ Grad-CAM Visual Heatmap ]</span>
+                            </div>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* ROW 3: Radiologist Report section */}
-                    <div className="bg-panel rounded border border-subtle p-6 shadow-sm" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem', boxSizing: 'border-box' }}>
-                      <div className="border-b border-subtle pb-4">
-                        <h3 className="text-sm text-accent-blue uppercase tracking-wider font-bold flex items-center gap-2"><FileText size={16}/> Radiologist Report</h3>
-                        <p className="text-xs text-muted mt-1">Complete the clinical findings and recommendations below.</p>
+                    {/* SECTION 3: Radiologist Clinical Report Sections */}
+                    <div className="report-sections-card">
+                      <div className="border-b border-subtle pb-3">
+                        <div className="patient-reg-section-title" style={{ margin: 0 }}>
+                          <FileText size={16} /> Radiologist Clinical Report
+                        </div>
+                        <p className="text-xs text-muted" style={{ margin: '4px 0 0 0' }}>
+                          Standard 4-tier structured radiological reporting protocol.
+                        </p>
                       </div>
 
-                      <div style={{ width: '100%' }}>
-                        <label className="text-xs text-primary font-bold block mb-2 uppercase tracking-wider">Clinical History / Observations</label>
-                        <textarea className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '6px', minHeight: '140px', width: '100%', boxSizing: 'border-box' }} value={selectedReport.observations} onChange={e => setSelectedReport({...selectedReport, observations: e.target.value})} placeholder="Enter patient history and initial clinical observations..."></textarea>
-                      </div>
-                      
-                      <div style={{ width: '100%' }}>
-                        <label className="text-xs text-primary font-bold block mb-2 uppercase tracking-wider">Radiographic Findings</label>
-                        <textarea className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '6px', minHeight: '180px', width: '100%', boxSizing: 'border-box' }} value={selectedReport.findings} onChange={e => setSelectedReport({...selectedReport, findings: e.target.value})} placeholder="Detail all radiographic findings, noting exact anatomical locations..."></textarea>
-                      </div>
-                      
-                      <div style={{ width: '100%' }}>
-                        <label className="text-xs text-primary font-bold block mb-2 uppercase tracking-wider">Impression</label>
-                        <textarea className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '6px', minHeight: '140px', width: '100%', boxSizing: 'border-box' }} value={selectedReport.impression} onChange={e => setSelectedReport({...selectedReport, impression: e.target.value})} placeholder="State the final clinical impression..."></textarea>
+                      <div className="clinical-section-block">
+                        <label className="clinical-section-header">
+                          <span className="clinical-step-num">1</span>
+                          <span>Clinical History & Indication</span>
+                        </label>
+                        <textarea 
+                          className="clinical-textarea" 
+                          rows={3} 
+                          value={selectedReport.observations} 
+                          onChange={e => setSelectedReport({...selectedReport, observations: e.target.value})} 
+                          placeholder="Indication for exam, relevant symptoms, surgical history..."
+                        />
                       </div>
 
-                      <div style={{ width: '100%' }}>
-                        <label className="text-xs text-primary font-bold block mb-2 uppercase tracking-wider">Recommendations / Follow-up</label>
-                        <textarea className="input-field w-full" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', borderRadius: '6px', minHeight: '140px', width: '100%', boxSizing: 'border-box' }} value={selectedReport.recommendations} onChange={e => setSelectedReport({...selectedReport, recommendations: e.target.value})} placeholder="Suggested clinical follow-up..."></textarea>
+                      <div className="clinical-section-block">
+                        <label className="clinical-section-header">
+                          <span className="clinical-step-num">2</span>
+                          <span>Radiographic Findings</span>
+                        </label>
+                        <textarea 
+                          className="clinical-textarea" 
+                          rows={4} 
+                          value={selectedReport.findings} 
+                          onChange={e => setSelectedReport({...selectedReport, findings: e.target.value})} 
+                          placeholder="Detailed radiographic findings, anatomical localization, tissue density..."
+                        />
+                      </div>
+
+                      <div className="clinical-section-block">
+                        <label className="clinical-section-header">
+                          <span className="clinical-step-num">3</span>
+                          <span>Diagnostic Impression</span>
+                        </label>
+                        <textarea 
+                          className="clinical-textarea" 
+                          rows={3} 
+                          value={selectedReport.impression} 
+                          onChange={e => setSelectedReport({...selectedReport, impression: e.target.value})} 
+                          placeholder="Primary diagnosis, differential diagnoses, critical pathology..."
+                        />
+                      </div>
+
+                      <div className="clinical-section-block">
+                        <label className="clinical-section-header">
+                          <span className="clinical-step-num">4</span>
+                          <span>Recommendations & Follow-up Plan</span>
+                        </label>
+                        <textarea 
+                          className="clinical-textarea" 
+                          rows={3} 
+                          value={selectedReport.recommendations} 
+                          onChange={e => setSelectedReport({...selectedReport, recommendations: e.target.value})} 
+                          placeholder="Clinical follow-up, correlation with biopsy or laboratory values, repeat imaging interval..."
+                        />
                       </div>
                     </div>
                   </div>
@@ -1723,85 +2078,426 @@ function Dashboard() {
             )}
 
             {activeSidebar === 'Settings' && (
-              <div style={{ maxWidth: '800px', width: '100%', margin: '0 auto' }}>
-                <div className="mb-6"><h1 style={{ fontSize: '1.25rem' }}>Settings & Preferences</h1></div>
-                
-                <div className="bg-panel rounded border border-subtle p-6 mb-6">
-                  <h3 className="text-base mb-4 border-b border-subtle pb-2 flex items-center gap-2">
-                    <Users size={16} className="text-primary"/> Professional Profile
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                    <div><label className="text-xs text-muted block mb-1">Full Name</label><input className="input-field" defaultValue="Dr. Smith" /></div>
-                    <div><label className="text-xs text-muted block mb-1">Professional ID / License</label><input className="input-field" defaultValue="RAD-1042" /></div>
-                    <div><label className="text-xs text-muted block mb-1">Email Address</label><input className="input-field" defaultValue="dr.smith@medvision.ai" /></div>
-                    <div><label className="text-xs text-muted block mb-1">Institution</label><input className="input-field" defaultValue="Central General Hospital" /></div>
+              <div className="settings-container-wrap">
+                {/* SETTINGS HEADER */}
+                <div className="settings-header-banner">
+                  <div>
+                    <h1 style={{ fontSize: '1.4rem', marginBottom: '0.25rem' }}>Workstation Settings & Preferences</h1>
+                    <p className="text-xs text-muted">Configure physician credentials, deep learning inference pipelines, and visual appearance.</p>
                   </div>
-                  <div className="mt-4 flex justify-end">
-                    <button className="btn-primary"><CheckCircle size={16}/> Save Profile</button>
-                  </div>
+                  {profileToast && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <CheckCircle size={14} /> {profileToast}
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-panel rounded border border-subtle p-6 mb-6">
-                  <h3 className="text-base mb-4 border-b border-subtle pb-2 flex items-center gap-2">
-                    <Activity size={16} className="text-primary"/> AI Diagnostics Configuration
-                  </h3>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex justify-between items-center p-3 rounded" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div>
-                        <div className="font-medium text-primary">Auto-run AI Inference</div>
-                        <div className="text-xs text-muted">Automatically process incoming studies using default AI models</div>
-                      </div>
-                      <input type="checkbox" defaultChecked style={{ width: '18px', height: '18px', accentColor: 'var(--accent-blue)' }} />
-                    </div>
-                    <div className="flex justify-between items-center p-3 rounded" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div>
-                        <div className="font-medium text-primary">Critical Priority Alerts</div>
-                        <div className="text-xs text-muted">Send desktop notification for HIGH severity findings</div>
-                      </div>
-                      <input type="checkbox" defaultChecked style={{ width: '18px', height: '18px', accentColor: 'var(--accent-blue)' }} />
-                    </div>
-                    <div className="flex justify-between items-center p-3 rounded" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div>
-                        <div className="font-medium text-primary">Enable Saliency Heatmaps</div>
-                        <div className="text-xs text-muted">Generate grad-CAM heatmaps for vision model interpretations</div>
-                      </div>
-                      <input type="checkbox" defaultChecked style={{ width: '18px', height: '18px', accentColor: 'var(--accent-blue)' }} />
-                    </div>
-                  </div>
+                {/* SEGMENTED TAB NAVIGATION */}
+                <div className="settings-tabs-nav">
+                  <button 
+                    type="button" 
+                    className={`settings-tab-btn ${settingsActiveTab === 'profile' ? 'active' : ''}`}
+                    onClick={() => setSettingsActiveTab('profile')}
+                  >
+                    <User size={15} /> Physician Profile
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`settings-tab-btn ${settingsActiveTab === 'ai' ? 'active' : ''}`}
+                    onClick={() => setSettingsActiveTab('ai')}
+                  >
+                    <Cpu size={15} /> AI Diagnostics Engine
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`settings-tab-btn ${settingsActiveTab === 'appearance' ? 'active' : ''}`}
+                    onClick={() => setSettingsActiveTab('appearance')}
+                  >
+                    <Palette size={15} /> Appearance & Themes
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`settings-tab-btn ${settingsActiveTab === 'database' ? 'active' : ''}`}
+                    onClick={() => setSettingsActiveTab('database')}
+                  >
+                    <Database size={15} /> Storage & Health
+                  </button>
                 </div>
 
-                <div className="bg-panel rounded border border-subtle p-6 mb-8">
-                  <h3 className="text-base mb-4 border-b border-subtle pb-2 flex items-center gap-2">
-                    System & Appearance
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                    <div>
-                      <label className="text-xs text-muted block mb-1">Theme Preference</label>
-                      <select className="input-field">
-                        <option>Premium Glassmorphism (Dark)</option>
-                        <option>Clinical Contrast (Light)</option>
-                        <option>System Default</option>
-                      </select>
+                {/* TAB 1: PHYSICIAN PROFILE */}
+                {settingsActiveTab === 'profile' && (
+                  <div>
+                    {/* Doctor Avatar Banner */}
+                    <div className="doctor-profile-banner">
+                      <div className="doctor-avatar-circle">DS</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                          <h2 style={{ fontSize: '1.2rem', margin: 0 }}>{profileForm.name}</h2>
+                          <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.6rem', background: '#10b981', color: '#000', fontWeight: 700, borderRadius: '20px', letterSpacing: '0.05em' }}>
+                            VERIFIED RADIOLOGIST
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted" style={{ margin: 0 }}>
+                          {profileForm.specialty} · {profileForm.institution} · License #{profileForm.license}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-xs text-muted block mb-1">Display Density</label>
-                      <select className="input-field">
-                        <option>Comfortable</option>
-                        <option>Compact</option>
-                      </select>
+
+                    <div className="settings-card">
+                      <div className="settings-card-header">
+                        <div className="settings-card-title">
+                          <ShieldCheck size={18} style={{ color: 'var(--accent-blue)' }} /> Clinical Credentials
+                        </div>
+                        <span className="text-xs text-muted">Used in generated PDF radiology reports</span>
+                      </div>
+
+                      <div className="settings-form-grid">
+                        <div className="settings-field-group">
+                          <label>Full Legal Name & Title</label>
+                          <input 
+                            className="input-field" 
+                            value={profileForm.name} 
+                            onChange={e => setProfileForm({...profileForm, name: e.target.value})}
+                          />
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Medical Board License / NPI</label>
+                          <input 
+                            className="input-field mono" 
+                            value={profileForm.license} 
+                            onChange={e => setProfileForm({...profileForm, license: e.target.value})}
+                          />
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Official Email Address</label>
+                          <input 
+                            className="input-field" 
+                            type="email"
+                            value={profileForm.email} 
+                            onChange={e => setProfileForm({...profileForm, email: e.target.value})}
+                          />
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Primary Clinical Institution</label>
+                          <input 
+                            className="input-field" 
+                            value={profileForm.institution} 
+                            onChange={e => setProfileForm({...profileForm, institution: e.target.value})}
+                          />
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Department</label>
+                          <input 
+                            className="input-field" 
+                            value={profileForm.department} 
+                            onChange={e => setProfileForm({...profileForm, department: e.target.value})}
+                          />
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Subspecialty / Fellowship</label>
+                          <input 
+                            className="input-field" 
+                            value={profileForm.specialty} 
+                            onChange={e => setProfileForm({...profileForm, specialty: e.target.value})}
+                          />
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Direct Workstation Contact Phone</label>
+                          <input 
+                            className="input-field" 
+                            value={profileForm.phone} 
+                            onChange={e => setProfileForm({...profileForm, phone: e.target.value})}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                        <button 
+                          type="button" 
+                          className="btn-primary"
+                          onClick={() => {
+                            setProfileToast('Physician Profile successfully updated!');
+                            setTimeout(() => setProfileToast(''), 3000);
+                          }}
+                        >
+                          <CheckCircle size={15} /> Save Profile Changes
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="pt-4 border-t border-subtle flex gap-4">
-                     <button className="btn-primary" onClick={() => setShowExportModal(true)} style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}><FileText size={16}/> Export Database</button>
-                     <button className="btn-primary" style={{ background: 'var(--status-urgent-subtle)', border: '1px solid var(--status-urgent)', color: 'var(--status-urgent)' }}><X size={16}/> Clear Cache</button>
+                )}
+
+                {/* TAB 2: AI DIAGNOSTICS CONFIGURATION */}
+                {settingsActiveTab === 'ai' && (
+                  <div>
+                    {/* Live Engine Banner */}
+                    <div className="settings-card" style={{ background: 'linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(16,185,129,0.06) 100%)', borderColor: 'rgba(37,99,235,0.25)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }}></div>
+                            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>FastAPI PyTorch ML Inference Engine</span>
+                          </div>
+                          <p className="text-xs text-muted" style={{ margin: 0 }}>
+                            Listening on http://localhost:8001 · ResNet18 (Brain MRI 94.5%) · DenseNet121 (Lung CT 98.2%) · CLAHE Pipeline Active
+                          </p>
+                        </div>
+                        <span style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: '20px', background: 'rgba(16,185,129,0.2)', color: '#10b981', fontWeight: 600, border: '1px solid rgba(16,185,129,0.4)' }}>
+                          PIPELINE ONLINE
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="settings-card">
+                      <div className="settings-card-header">
+                        <div className="settings-card-title">
+                          <Sliders size={18} style={{ color: 'var(--accent-blue)' }} /> Deep Learning Workflow Toggles
+                        </div>
+                        <span className="text-xs text-muted">Automatic inference & emergency dispatch</span>
+                      </div>
+
+                      {/* Toggle 1 */}
+                      <div className="toggle-switch-row">
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                            Automatic AI Inference on Scan Ingestion
+                          </div>
+                          <div className="text-xs text-muted">
+                            Automatically runs convolutional neural networks the moment a DICOM or image file is selected.
+                          </div>
+                        </div>
+                        <label className="toggle-switch">
+                          <input 
+                            type="checkbox" 
+                            checked={aiConfig.autoInference} 
+                            onChange={e => setAiConfig({...aiConfig, autoInference: e.target.checked})} 
+                          />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+
+                      {/* Toggle 2 */}
+                      <div className="toggle-switch-row">
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                            Emergency Room (ER) Critical Triage Escalation
+                          </div>
+                          <div className="text-xs text-muted">
+                            Flags scans with detected intracranial tumors or COVID-19 consolidation as HIGH PRIORITY in the reading queue.
+                          </div>
+                        </div>
+                        <label className="toggle-switch">
+                          <input 
+                            type="checkbox" 
+                            checked={aiConfig.criticalAlerts} 
+                            onChange={e => setAiConfig({...aiConfig, criticalAlerts: e.target.checked})} 
+                          />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+
+                      {/* Toggle 3 */}
+                      <div className="toggle-switch-row">
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                            Explainable AI (Grad-CAM) Visual Heatmaps
+                          </div>
+                          <div className="text-xs text-muted">
+                            Generates saliency heatmaps overlaying raw pixel tissue to show precisely where neural activations occurred.
+                          </div>
+                        </div>
+                        <label className="toggle-switch">
+                          <input 
+                            type="checkbox" 
+                            checked={aiConfig.gradcamHeatmaps} 
+                            onChange={e => setAiConfig({...aiConfig, gradcamHeatmaps: e.target.checked})} 
+                          />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+
+                      {/* Toggle 4 */}
+                      <div className="toggle-switch-row">
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                            Tabular Machine Learning Models (Stroke & Fetal Health)
+                          </div>
+                          <div className="text-xs text-muted">
+                            Evaluates vital sign datasets (glucose, BMI, CTG) to predict pathological clinical outcomes with 93%+ accuracy.
+                          </div>
+                        </div>
+                        <label className="toggle-switch">
+                          <input 
+                            type="checkbox" 
+                            checked={aiConfig.tabularAssistance} 
+                            onChange={e => setAiConfig({...aiConfig, tabularAssistance: e.target.checked})} 
+                          />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+
+                      {/* Confidence Slider */}
+                      <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                          <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>AI Diagnostic Confidence Threshold</span>
+                          <span style={{ fontWeight: 700, color: 'var(--accent-blue)', fontSize: '0.95rem' }}>{aiConfig.confidenceThreshold}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="60" 
+                          max="98" 
+                          value={aiConfig.confidenceThreshold}
+                          onChange={e => setAiConfig({...aiConfig, confidenceThreshold: parseInt(e.target.value)})}
+                          style={{ width: '100%', accentColor: 'var(--accent-blue)', cursor: 'pointer' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                          <span>60% (High Recall / Sensitive)</span>
+                          <span>85% (Balanced Clinical)</span>
+                          <span>98% (High Precision)</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* TAB 3: APPEARANCE & THEMES */}
+                {settingsActiveTab === 'appearance' && (
+                  <div>
+                    <div className="settings-card">
+                      <div className="settings-card-header">
+                        <div className="settings-card-title">
+                          <Palette size={18} style={{ color: 'var(--accent-blue)' }} /> Color Theme & Interface Appearance
+                        </div>
+                        <span className="text-xs text-muted">Click a visual preview to switch theme</span>
+                      </div>
+
+                      {/* THEME PICKER CARDS */}
+                      <div className="theme-picker-grid">
+                        {/* Dark Option */}
+                        <div 
+                          className={`theme-card-option ${!isWhiteTheme ? 'selected' : ''}`}
+                          onClick={() => setIsWhiteTheme(false)}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>🌙 Premium Glassmorphism (Dark)</span>
+                            {!isWhiteTheme && <CheckCircle size={16} style={{ color: '#3b82f6' }} />}
+                          </div>
+                          <div style={{ height: '70px', borderRadius: '8px', background: '#080c14', border: '1px solid #1e293b', padding: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ width: '25%', height: '100%', background: '#0f172a', borderRadius: '4px' }}></div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                              <div style={{ width: '60%', height: '8px', background: '#3b82f6', borderRadius: '2px' }}></div>
+                              <div style={{ width: '100%', height: '12px', background: '#1e293b', borderRadius: '2px' }}></div>
+                              <div style={{ width: '80%', height: '12px', background: '#1e293b', borderRadius: '2px' }}></div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted" style={{ margin: 0 }}>
+                            Low eyestrain dark palette designed for dark radiology reading rooms.
+                          </p>
+                        </div>
+
+                        {/* Light Option */}
+                        <div 
+                          className={`theme-card-option ${isWhiteTheme ? 'selected' : ''}`}
+                          onClick={() => setIsWhiteTheme(true)}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>☀️ Clinical Contrast (White Theme)</span>
+                            {isWhiteTheme && <CheckCircle size={16} style={{ color: '#2563eb' }} />}
+                          </div>
+                          <div style={{ height: '70px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #cbd5e1', padding: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ width: '25%', height: '100%', background: '#ffffff', borderRadius: '4px', border: '1px solid #e2e8f0' }}></div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                              <div style={{ width: '60%', height: '8px', background: '#2563eb', borderRadius: '2px' }}></div>
+                              <div style={{ width: '100%', height: '12px', background: '#ffffff', borderRadius: '2px', border: '1px solid #e2e8f0' }}></div>
+                              <div style={{ width: '80%', height: '12px', background: '#ffffff', borderRadius: '2px', border: '1px solid #e2e8f0' }}></div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted" style={{ margin: 0 }}>
+                            Crisp high-contrast daylight aesthetic tailored for clinical consultations.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Display Layout Settings */}
+                      <div className="settings-form-grid" style={{ marginTop: '1.75rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-subtle)' }}>
+                        <div className="settings-field-group">
+                          <label>Worklist Reading Density</label>
+                          <select className="input-field">
+                            <option>Comfortable (Recommended for Radiologists)</option>
+                            <option>Compact (High Throughput)</option>
+                          </select>
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Default Diagnostic Imaging Modality</label>
+                          <select className="input-field">
+                            <option>Brain MRI (ResNet18 Fine-tuned)</option>
+                            <option>Lung CT Scan (DenseNet121)</option>
+                            <option>Chest X-Ray</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 4: DATABASE & STORAGE */}
+                {settingsActiveTab === 'database' && (
+                  <div>
+                    <div className="settings-card">
+                      <div className="settings-card-header">
+                        <div className="settings-card-title">
+                          <Database size={18} style={{ color: 'var(--accent-blue)' }} /> Storage & Clinical Data Persistence
+                        </div>
+                        <span className="text-xs text-muted">Local encrypted SQLite database</span>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+                          <span className="text-xs text-muted block mb-1">DATABASE FILE</span>
+                          <span style={{ fontWeight: 700, fontSize: '1rem' }} className="mono">medvision_clinical.db</span>
+                        </div>
+                        <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+                          <span className="text-xs text-muted block mb-1">TOTAL PATIENTS</span>
+                          <span style={{ fontWeight: 700, fontSize: '1.25rem', color: 'var(--accent-blue)' }}>{patients.length}</span>
+                        </div>
+                        <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+                          <span className="text-xs text-muted block mb-1">STORED STUDIES</span>
+                          <span style={{ fontWeight: 700, fontSize: '1.25rem', color: '#10b981' }}>{studies.length}</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: '1rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
+                        <button 
+                          type="button" 
+                          className="btn-primary" 
+                          onClick={() => setShowExportModal(true)}
+                        >
+                          <FileText size={16} /> Export Full Patient Database
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn-primary" 
+                          style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444' }}
+                          onClick={() => {
+                            if (window.confirm("Clear diagnostic image cache and refresh study cache?")) {
+                              alert("Local diagnostic cache cleared successfully.");
+                            }
+                          }}
+                        >
+                          <X size={16} /> Clear Diagnostic Cache
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* RIGHT SIDEBAR (ACTIVITY & PROCESSING) - Hidden on XAI Reports to maximize width */}
-          {activeSidebar !== 'XAI Reports' && (
+          {/* RIGHT SIDEBAR (ACTIVITY & PROCESSING) - Hidden on XAI Reports, Settings & Patient Registration to maximize width */}
+          {activeSidebar !== 'XAI Reports' && activeSidebar !== 'Settings' && !(activeSidebar === 'Patient Directory' && editingPatient) && (
             <div className="dashboard-right">
               <div className="panel-section">
                 <h3>RECENT ACTIVITY</h3>
@@ -1858,49 +2554,40 @@ function Dashboard() {
       {/* FLOATING AI ASSISTANT WIDGET */}
       <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999 }}>
         {showAssistant ? (
-          <div className="bg-panel" style={{ width: '350px', height: '500px', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ padding: '1rem', background: 'linear-gradient(135deg, rgba(253,224,71,0.05) 0%, rgba(217,119,6,0.15) 100%)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="medvision-copilot-modal">
+            <div className="medvision-copilot-header">
               <div className="flex items-center gap-2">
                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #fde047 0%, #d97706 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', boxShadow: '0 0 10px rgba(253,224,71,0.5)' }}>
                   <Activity size={16} />
                 </div>
-                <h3 style={{ margin: 0, fontSize: '0.9rem', color: '#fde047' }}>MedVision Copilot</h3>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#fde047' }}>MedVision Copilot</h3>
               </div>
               <button onClick={() => {
                 setShowAssistant(false);
                 setChatHistory([{ role: 'ai', text: 'Hello Dr. Smith. I am MedVision Copilot. How can I assist you with your clinical workflow today?' }]);
-              }} style={{ color: 'var(--text-secondary)' }}><X size={16}/></button>
+              }} style={{ color: 'var(--text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={16}/></button>
             </div>
             
-            <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="medvision-copilot-messages">
               {chatHistory.map((msg, i) => (
                 <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-                  <div style={{ 
-                    padding: '0.75rem 1rem', 
-                    borderRadius: '12px', 
-                    background: msg.role === 'user' ? 'rgba(255,255,255,0.05)' : 'rgba(253,224,71,0.1)',
-                    border: msg.role === 'user' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(253,224,71,0.2)',
-                    color: msg.role === 'user' ? 'var(--text-primary)' : '#fef08a',
-                    fontSize: '0.85rem',
-                    lineHeight: '1.4',
-                    whiteSpace: 'pre-wrap'
-                  }}>
+                  <div className={msg.role === 'user' ? 'medvision-copilot-msg-user' : 'medvision-copilot-msg-ai'}>
                     {msg.text}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
+            <div className="medvision-copilot-footer">
               <form onSubmit={handleChatSubmit} style={{ display: 'flex', gap: '0.5rem' }}>
                 <input 
                   className="input-field" 
                   value={chatInput} 
                   onChange={e => setChatInput(e.target.value)} 
                   placeholder="Ask Copilot anything..." 
-                  style={{ borderRadius: '20px', padding: '0.5rem 1rem' }} 
+                  style={{ borderRadius: '20px', padding: '0.55rem 1rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#ffffff' }} 
                 />
-                <button type="submit" style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #fde047 0%, #d97706 100%)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <button type="submit" style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #fde047 0%, #d97706 100%)', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: 'none', cursor: 'pointer' }}>
                   <ChevronRight size={18} />
                 </button>
               </form>
